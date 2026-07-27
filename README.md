@@ -1,4 +1,4 @@
-# FRIDAY v2.7.0
+# FRIDAY v2.9.0
 
 > **A Personal AI Operating System.**
 >
@@ -10,19 +10,64 @@
 
 ## Quick Install
 
+### Linux (Arch / EndeavourOS)
 ```bash
- sudo bash <(curl -s https://raw.githubusercontent.com/anomalyco/friday/main/friday-installer.sh)
+sudo bash <(curl -fsSL https://raw.githubusercontent.com/anomalyco/friday/main/install/friday-installer.sh)
+```
+On next login, FRIDAY asks permission. Say yes and it starts automatically after every login.
+
+### Linux (Debian / Ubuntu)
+```bash
+# Install system dependencies
+sudo apt update && sudo apt install -y python3 python3-pip python3-venv nodejs npm xclip
+
+# Clone and install
+git clone https://github.com/anomalyco/friday.git
+cd friday
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e .
+
+# Boot + login integration
+sudo bash install/setup.sh
+
+# Start now
+./friday/main.py
 ```
 
-On next login, FRIDAY asks for your permission. Say yes and it starts automatically after every login. Type `friday` anytime for the REPL.
-
-Or clone and install manually:
-
+### macOS
 ```bash
-sudo git clone https://github.com/AslamOP/Friday.git /opt/friday
-sudo /opt/friday/.venv/bin/python -m venv /opt/friday/.venv
-sudo /opt/friday/.venv/bin/pip install -e /opt/friday
-sudo cp /opt/friday/install/friday-welcome.sh /etc/profile.d/friday.sh
+# Install Homebrew if not present: https://brew.sh
+brew install python@3.11 node
+
+git clone https://github.com/anomalyco/friday.git
+cd friday
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e .
+
+# Start FRIDAY
+python friday/main.py
+```
+
+### Windows (WSL2)
+```powershell
+# In PowerShell (Admin):
+wsl --install -d Ubuntu
+
+# Then in WSL terminal:
+sudo apt update && sudo apt install -y python3 python3-pip python3-venv git
+git clone https://github.com/anomalyco/friday.git
+cd friday
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e .
+python friday/main.py
+```
+
+### One-liner (cross-platform)
+```bash
+curl -fsSL https://raw.githubusercontent.com/anomalyco/friday/main/install/friday-installer.sh | bash
 ```
 
 ---
@@ -82,7 +127,7 @@ The language model is one component of a larger system. FRIDAY thinks before ans
 | **CAD Engineer** | SolidWorks, ANSYS, MATLAB scripts, optimization | "Design...", "Simulate...", "Optimize..." |
 | **Automation Engineer** | Scripts, cron, monitoring, background tasks | "Automate...", "Watch...", "Schedule..." |
 | **Knowledge Manager** | Indexes files, answers from personal knowledge | Background (always), or "What do I know about..." |
-| **Academic Tutor** | Teaches subjects, solves problems, generates PYQ questions | "Explain...", "Solve...", "Study...", "PYQ..." |
+| **Study Agent** | Offline-first folder-based learning, study guides | "Study...", "Set folder...", "Generate guide..." |
 | **Gaming Assistant** | Performance monitoring, walkthroughs, optimizations | Game detected, "Help with...", performance drops |
 
 Every agent has:
@@ -177,8 +222,9 @@ The interface is the window into FRIDAY. It is not the product itself.
 ## Interfaces
 
 - **CLI** — Primary interface. Always available.
+- **Desktop GUI** — Frameless PyQt6 window with holographic display, live system stats, agent panel, voice input, editable profile, provider settings. Launch with `friday --gui`.
 - **Voice** — Speech-to-text (whisper), TTS (piper). Wake word support.
-- **System Tray** — KDE widget. Quick commands, status, notifications.
+- **System Tray** — Quick actions: Open GUI, Open REPL, Check Status, Refresh Providers.
 - **Cursor Plugin** — FRIDAY inside your IDE.
 - **Web Dashboard** — Optional. For monitoring and advanced settings.
 

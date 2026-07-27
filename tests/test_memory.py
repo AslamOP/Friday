@@ -79,6 +79,32 @@ class TestUserProfile:
         p2.load(str(path))
         assert p2.get_profile()["name"] == "SavedUser"
 
+    def test_nested_dict_update(self):
+        p = UserProfile()
+        p.update_profile({"coding_style": {"language_preference": "rust", "line_length": 100}})
+        prof = p.get_profile()
+        assert prof["coding_style"]["language_preference"] == "rust"
+        assert prof["coding_style"]["line_length"] == 100
+        assert prof["coding_style"]["indent_style"] == "spaces"
+
+    def test_writing_style_default(self):
+        p = UserProfile()
+        prof = p.get_profile()
+        assert "writing_style" in prof
+        assert prof["writing_style"]["tone"] == "technical"
+        assert prof["writing_style"]["citation_format"] == "APA"
+
+    def test_new_keys_added(self):
+        p = UserProfile()
+        p.update_profile({"custom_key": "custom_value"})
+        assert p.get_profile()["custom_key"] == "custom_value"
+
+    def test_load_nonexistent(self):
+        p = UserProfile()
+        from pathlib import Path
+        p.load(Path("/nonexistent/path.json"))
+        assert p.get_profile()["name"] == "Architect"
+
     def test_singleton(self):
         assert UserProfile() is UserProfile()
 
@@ -114,6 +140,19 @@ class TestProjectMemory:
         pm2 = ProjectMemory()
         pm2.load(str(path))
         assert len(pm2.list_projects()) == 1
+
+    def test_update_project(self):
+        pm = ProjectMemory()
+        pid = pm.create_project("UpdateTest")
+        assert pm.update_project(pid, {"description": "Updated desc"}) is True
+        assert pm.get_project(pid)["description"] == "Updated desc"
+        assert pm.update_project("fake", {}) is False
+
+    def test_list_projects_returns_all(self):
+        pm = ProjectMemory()
+        pm.create_project("A")
+        pm.create_project("B")
+        assert len(pm.list_projects()) == 2
 
     def test_singleton(self):
         assert ProjectMemory() is ProjectMemory()

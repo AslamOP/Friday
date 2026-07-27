@@ -1,8 +1,6 @@
 import asyncio
 import logging
-import os
 import subprocess
-import sys
 from pathlib import Path
 
 logger = logging.getLogger("friday.tray")
@@ -30,7 +28,18 @@ class FridayTray:
     def __init__(self):
         self._running = False
 
-    def _open_repl(self):
+    def _launch_gui(self):
+        friday_dir = Path(__file__).resolve().parent.parent.parent.parent
+        venv_python = friday_dir / ".venv" / "bin" / "python"
+        main_py = friday_dir / "friday" / "main.py"
+        subprocess.Popen(
+            [str(venv_python), str(main_py), "--gui"],
+            cwd=str(friday_dir),
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+
+    def _launch_repl(self):
         friday_dir = Path(__file__).resolve().parent.parent.parent.parent
         venv_python = friday_dir / ".venv" / "bin" / "python"
         main_py = friday_dir / "friday" / "main.py"
@@ -58,12 +67,32 @@ class FridayTray:
             from .notifications import Notifier
             asyncio.run(Notifier().warning(f"Status error: {e}"))
 
+    def _refresh_providers(self):
+        from friday.router.provider_registry import ProviderRegistry
+
+        async def _do():
+            reg = ProviderRegistry()
+            await reg.check_all()
+            online = [p.name for p in reg.get_online_providers()]
+            return online
+
+        try:
+            online = asyncio.run(_do())
+            from .notifications import Notifier
+            asyncio.run(Notifier().info(f"Providers refreshed: {', '.join(online) or 'none online'}"))
+        except Exception as e:
+            from .notifications import Notifier
+            asyncio.run(Notifier().warning(f"Refresh error: {e}"))
+
     def run(self):
         import pystray
         icon_img = _create_icon()
         menu = pystray.Menu(
-            pystray.MenuItem("Open FRIDAY", self._open_repl, default=True),
-            pystray.MenuItem("Status", self._show_status),
+            pystray.MenuItem("Open GUI", self._launch_gui, default=True),
+            pystray.MenuItem("Open REPL", self._launch_repl),
+            pystray.Menu.SEPARATOR,
+            pystray.MenuItem("Check Status", self._show_status),
+            pystray.MenuItem("Refresh Providers", self._refresh_providers),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("Quit", self._quit),
         )

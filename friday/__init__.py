@@ -1,4 +1,4 @@
-__version__ = "2.7.0"
+__version__ = "2.9.0"
 from friday.agents.base import BaseAgent
 from friday.plugin.base import Plugin
 from friday.plugin.manager import PluginManager

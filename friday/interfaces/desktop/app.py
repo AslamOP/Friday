@@ -3,16 +3,21 @@ import logging
 import subprocess
 import sys
 
-from PyQt6.QtCore import Qt, QTimer, QRectF, QPointF
-from PyQt6.QtGui import QPainter, QPainterPath, QColor, QBrush, QLinearGradient, QFont, QRegion, QFontDatabase
+from PyQt6.QtCore import QPointF, QRectF, Qt, QTimer
+from PyQt6.QtGui import QBrush, QColor, QFont, QLinearGradient, QPainter, QPainterPath, QRegion
 from PyQt6.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QLabel, QSizePolicy, QGraphicsDropShadowEffect, QStackedWidget,
+    QApplication,
+    QHBoxLayout,
+    QMainWindow,
+    QStackedWidget,
+    QVBoxLayout,
+    QWidget,
 )
 
-from friday.tools.system_monitor import SystemMonitor  # noqa: direct import to avoid bs4 dep
 from friday.interfaces.audio import SpeechToText
-from .widgets import HoloSphere, StatPanel, CommandBar, OutputArea, TitleBar, AgentPanel, ProfilePanel
+from friday.tools.system_monitor import SystemMonitor  # noqa: direct import to avoid bs4 dep
+
+from .widgets import AgentPanel, CommandBar, HoloSphere, OutputArea, ProfilePanel, SettingsDialog, StatPanel, TitleBar
 
 logger = logging.getLogger("friday.desktop")
 
@@ -51,6 +56,7 @@ class FridayWindow(QMainWindow):
         self._output.append_output("Type a command or click the mic for voice.", "info")
 
         self._load_profile_data()
+        self._setup_shortcuts()
 
     def _get_version(self):
         try:
@@ -101,6 +107,7 @@ class FridayWindow(QMainWindow):
 
         self._title_bar = TitleBar(self)
         self._title_bar.profile_clicked.connect(self._toggle_profile)
+        self._title_bar.settings_clicked.connect(self._show_settings)
         main_layout.addWidget(self._title_bar)
 
         # stacked widget: page 0 = dashboard, page 1 = profile
@@ -219,7 +226,7 @@ class FridayWindow(QMainWindow):
             else:
                 self._output.append_output(result.output[:600], "error")
         except Exception:
-            self._output.append_output(f"Run daemon for full command processing.", "info")
+            self._output.append_output("Run daemon for full command processing.", "info")
 
     def _launch_app(self, name):
         try:
@@ -303,8 +310,8 @@ class FridayWindow(QMainWindow):
             self._profile_panel.set_projects([])
 
         try:
-            from pathlib import Path
             import json
+            from pathlib import Path
             cfg_path = Path("~/.config/friday/study_agent.json").expanduser()
             if cfg_path.exists():
                 cfg = json.loads(cfg_path.read_text())
@@ -316,6 +323,30 @@ class FridayWindow(QMainWindow):
                 self._profile_panel.set_study("", False)
         except Exception:
             self._profile_panel.set_study("", False)
+
+    def _show_settings(self):
+        if not hasattr(self, '_settings_dialog') or self._settings_dialog is None:
+            self._settings_dialog = SettingsDialog(self)
+        self._settings_dialog.move(
+            self.x() + (self.width() - self._settings_dialog.width()) // 2,
+            self.y() + (self.height() - self._settings_dialog.height()) // 2,
+        )
+        self._settings_dialog.show()
+        self._settings_dialog.raise_()
+
+    def _setup_shortcuts(self):
+        from PyQt6.QtGui import QKeySequence, QShortcut
+
+        QShortcut(QKeySequence("Ctrl+K"), self).activated.connect(self._output.clear)
+        QShortcut(QKeySequence("Ctrl+P"), self).activated.connect(self._toggle_profile)
+        QShortcut(QKeySequence("Ctrl+,"), self).activated.connect(self._show_settings)
+        QShortcut(QKeySequence("Escape"), self).activated.connect(self._minimize_window)
+
+    def _minimize_window(self):
+        if self._stack.currentIndex() == 1:
+            self._toggle_profile()
+        else:
+            self.showMinimized()
 
 
 def run_gui():

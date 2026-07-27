@@ -2,7 +2,7 @@ import json, logging
 from pathlib import Path
 from typing import Any
 logger = logging.getLogger("friday.user_profile")
-_DEFAULT: dict[str, Any] = {"name": "Architect", "title": "sir", "coding_style": {"language_preference": "python", "indent_style": "spaces", "line_length": 88}, "preferences": {"challenge_mode": True, "proactive_alerts": True}, "goals": [], "skills": []}
+_DEFAULT: dict[str, Any] = {"name": "Architect", "title": "sir", "coding_style": {"language_preference": "python", "indent_style": "spaces", "line_length": 88}, "writing_style": {"tone": "technical", "citation_format": "APA"}, "preferences": {"challenge_mode": True, "proactive_alerts": True}, "goals": [], "skills": []}
 class UserProfile:
     _instance = None
     def __new__(cls):

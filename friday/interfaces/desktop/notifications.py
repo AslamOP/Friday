@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import subprocess
 import shutil
 
 logger = logging.getLogger("friday.notifications")
