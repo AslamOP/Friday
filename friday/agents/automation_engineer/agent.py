@@ -1,11 +1,11 @@
 from ..base import BaseAgent, Context, Result, Task
 from . import prompts
-from friday.router.omniroute import OmniRouteClient
+from friday.router.provider_registry import ProviderRegistry
 class AutomationEngineerAgent(BaseAgent):
     name = "automation_engineer"
     def __init__(self):
         super().__init__(model_preference="deepseek/deepseek-coder-33b-instruct")
-        self._router = OmniRouteClient()
+        self._router = ProviderRegistry()
     async def handle(self, task, context):
         r = await self._router.route("automate", prompts.PROMPT.format(input=context.user_input), prompts.SYSTEM_PROMPT)
         return Result(success=True, output=r.get("content", ""), agent=self.name)

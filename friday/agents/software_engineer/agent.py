@@ -1,6 +1,6 @@
 from ..base import BaseAgent, Context, Result, Task
 from . import prompts
-from friday.router.omniroute import OmniRouteClient
+from friday.router.provider_registry import ProviderRegistry
 from friday.tools.shell_sandbox import ShellSandbox
 from friday.tools.file_ops import FileOps
 import re
@@ -10,7 +10,7 @@ class SoftwareEngineerAgent(BaseAgent):
     name = "software_engineer"
     def __init__(self):
         super().__init__(model_preference="deepseek/deepseek-coder-33b-instruct")
-        self._router = OmniRouteClient(); self._sandbox = ShellSandbox(); self._fs = FileOps()
+        self._router = ProviderRegistry(); self._sandbox = ShellSandbox(); self._fs = FileOps()
     async def _write_blocks(self, text, outdir="."):
         files = []
         for lang, code in CB.findall(text):

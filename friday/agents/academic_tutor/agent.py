@@ -1,7 +1,7 @@
 from ..base import BaseAgent, Context, Result, Task
 from . import prompts
 from .pyq_parser import PYQParser
-from friday.router.omniroute import OmniRouteClient
+from friday.router.provider_registry import ProviderRegistry
 from pathlib import Path
 import re
 PYQ_RE = re.compile(r"(parse|read|extract)\s+(pyq|pdf|paper)\s+(\S+\.pdf)", re.IGNORECASE)
@@ -9,7 +9,7 @@ class AcademicTutorAgent(BaseAgent):
     name = "academic_tutor"
     def __init__(self):
         super().__init__(model_preference="anthropic/claude-3.5-sonnet")
-        self._router = OmniRouteClient(); self._pyq = PYQParser()
+        self._router = ProviderRegistry(); self._pyq = PYQParser()
     async def handle(self, task, context):
         m = PYQ_RE.search(context.user_input)
         if m:

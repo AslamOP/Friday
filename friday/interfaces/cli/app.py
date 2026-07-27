@@ -20,7 +20,7 @@ from friday.agents.automation_engineer import AutomationEngineerAgent
 from friday.agents.knowledge_manager import KnowledgeManagerAgent
 from friday.agents.academic_tutor import AcademicTutorAgent
 from friday.agents.gaming_assistant import GamingAssistantAgent
-from friday.router.omniroute import OmniRouteClient
+from friday.router.provider_registry import ProviderRegistry
 from friday.interfaces.audio import SpeechToText, TextToSpeech
 from friday import __version__
 
@@ -48,7 +48,7 @@ class FridayREPL:
     def __init__(self):
         self.console = Console()
         self.orchestrator = get_orchestrator()
-        self.router = OmniRouteClient()
+        self.router = ProviderRegistry()
         for a in [
             MentorAgent(), PlannerAgent(), SoftwareEngineerAgent(),
             ResearchScientistAgent(), AutomationEngineerAgent(),

@@ -1,12 +1,12 @@
 from ..base import BaseAgent, Context, Result, Task
 from . import prompts
-from friday.router.omniroute import OmniRouteClient
+from friday.router.provider_registry import ProviderRegistry
 from friday.tools.web_search import WebSearchTool
 class ResearchScientistAgent(BaseAgent):
     name = "research_scientist"
     def __init__(self):
         super().__init__(model_preference="anthropic/claude-3.5-sonnet")
-        self._router = OmniRouteClient(); self._web = WebSearchTool()
+        self._router = ProviderRegistry(); self._web = WebSearchTool()
     async def handle(self, task, context):
         text = context.user_input; results = await self._web.search(text)
         ctx = ""

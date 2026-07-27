@@ -3,7 +3,7 @@ from . import prompts
 from .indexer import FileIndexer
 from friday.memory.knowledge_graph import KnowledgeGraph
 from friday.memory.vector_store import VectorStore
-from friday.router.omniroute import OmniRouteClient
+from friday.router.provider_registry import ProviderRegistry
 from friday.tools.file_ops import FileOps
 import re
 IDX = re.compile(r"(index|scan|crawl)\s+(directory|folder|path|file)\s+(\S+)", re.IGNORECASE)
@@ -12,7 +12,7 @@ class KnowledgeManagerAgent(BaseAgent):
     name = "knowledge_manager"
     def __init__(self):
         super().__init__(model_preference="openai/gpt-4o-mini")
-        self._router = OmniRouteClient(); self._kg = KnowledgeGraph(); self._vs = VectorStore()
+        self._router = ProviderRegistry(); self._kg = KnowledgeGraph(); self._vs = VectorStore()
         self._idx = FileIndexer(); self._fs = FileOps()
     async def handle(self, task, context):
         text = context.user_input

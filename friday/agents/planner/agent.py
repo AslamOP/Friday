@@ -1,13 +1,13 @@
 from ..base import BaseAgent, Context, Result, Task
 from . import prompts
 from friday.memory.project_memory import ProjectMemory
-from friday.router.omniroute import OmniRouteClient
+from friday.router.provider_registry import ProviderRegistry
 from uuid import uuid4
 class PlannerAgent(BaseAgent):
     name = "planner"
     def __init__(self):
         super().__init__(model_preference="anthropic/claude-3.5-sonnet")
-        self._router = OmniRouteClient(); self._pm = ProjectMemory()
+        self._router = ProviderRegistry(); self._pm = ProjectMemory()
     async def handle(self, task, context):
         r = await self._router.route("plan", prompts.PROMPT.format(input=context.user_input), prompts.SYSTEM_PROMPT)
         content = r.get("content", ""); pid = str(uuid4())
