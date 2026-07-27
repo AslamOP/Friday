@@ -92,22 +92,33 @@ Every agent has:
 
 ---
 
-## AI Routing (OmniRoute)
+## Provider System
 
-Users never select models. FRIDAY decides automatically.
+FRIDAY works out of the box with **zero configuration** using Zen API's free tier. Add your own providers anytime.
 
-| Task Type | Route |
-|-----------|-------|
-| Coding | Local Qwen Coder (Ollama) or DeepSeek via OmniRoute |
-| Large reasoning | Claude / Gemini via OmniRoute |
-| Research | Best reasoning model via OmniRoute |
-| Image understanding | Vision model via OmniRoute |
-| Fast chat | Local Ollama |
-| Offline | Ollama only |
+**Default providers shipped:**
 
-If one provider fails, OmniRoute automatically falls back to another.
+| Provider | Type | Works OOTB | Activate |
+|----------|------|------------|----------|
+| Zen | Cloud | ✅ Free, no key | Automatic |
+| OpenRouter | Cloud | If key in `.env` | `/provider key openrouter sk-...` |
+| Ollama | Local | If ollama is running | Start `ollama serve` |
+| OpenAI | Cloud | Needs key | `/provider key openai sk-...` |
+| Anthropic | Cloud | Needs key | `/provider key anthropic sk-...` |
+| Google Gemini | Cloud | Needs key | `/provider key google ...` |
+| GitHub Copilot | Cloud | Needs token | `/provider key github-copilot ...` |
 
-Manual provider selection exists only in Advanced Settings for debugging.
+**Provider commands in REPL:**
+
+```
+/providers                    List all providers and their status
+/provider key <name> <key>    Set API key (auto-fetches models)
+/provider add <name> <type> <endpoint>   Add custom provider
+/provider refresh <name>      Re-check status + fetch models
+/provider remove <name>       Remove user-added provider
+```
+
+Routing auto-selects the first online provider by priority: Zen → OpenRouter → Ollama → OpenAI → Anthropic → Google → GitHub Copilot. If one fails, the next is tried automatically.
 
 ---
 

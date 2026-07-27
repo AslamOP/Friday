@@ -148,6 +148,38 @@ class ProviderRegistry:
             p.api_key = api_key
             self._save()
 
+    async def fetch_models(self, name: str) -> list[str]:
+        p = self._providers.get(name)
+        if not p or not p.endpoint:
+            return []
+        try:
+            import httpx
+            headers = {"Content-Type": "application/json"}
+            if p.api_key:
+                headers["Authorization"] = f"Bearer {p.api_key}"
+            url = f"{p.endpoint.rstrip('/')}/models"
+            async with httpx.AsyncClient(timeout=5) as c:
+                r = await c.get(url, headers=headers)
+                if r.status_code == 200:
+                    data = r.json()
+                    models = [m["id"] for m in data.get("data", []) if "id" in m]
+                    if models:
+                        p.models = models
+                        self._save()
+                        return models
+        except Exception as e:
+            logger.debug("Could not fetch models for %s: %s", name, e)
+        return []
+
+    async def refresh(self, name: str) -> bool:
+        p = self._providers.get(name)
+        if not p:
+            return False
+        await self.check_status(name)
+        if p.status == "online":
+            await self.fetch_models(name)
+        return True
+
     def set_enabled(self, name: str, enabled: bool):
         p = self._providers.get(name)
         if p:

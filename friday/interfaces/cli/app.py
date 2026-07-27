@@ -108,10 +108,14 @@ class FridayREPL:
             status = p.status
             key_set = "✓" if p.api_key else "✗"
             label = f"{status} key:{key_set}" if p.type == "cloud" else status
-            t.add_row(p.name, p.type, label, ", ".join(p.models[:3]))
+            model_list = ", ".join(p.models[:3])
+            if len(p.models) > 3:
+                model_list += f" [dim]+{len(p.models)-3}[/dim]"
+            t.add_row(p.name, p.type, label, model_list)
         self.console.print(Panel(t, title="LLM Providers"))
         self.console.print("[dim]/provider add <name> <local|cloud> [endpoint][/dim]")
-        self.console.print("[dim]/provider key <name> <api_key>[/dim]")
+        self.console.print("[dim]/provider key <name> <api_key>          (fetches models)[/dim]")
+        self.console.print("[dim]/provider refresh <name>                (re-check + fetch models)[/dim]")
         self.console.print("[dim]/provider remove <name>[/dim]")
 
     async def _banner(self):
@@ -264,9 +268,26 @@ class FridayREPL:
                         name, key = parts[1], parts[2]
                         self.router.registry.set_key(name, key)
                         status = await self.router.registry.check_status(name)
-                        self.console.print(f"[green]{name} key set — status: {status}[/green]")
+                        models = await self.router.registry.fetch_models(name)
+                        msg = f"[green]{name} key set — status: {status}[/green]"
+                        if models:
+                            msg += f" [dim]({len(models)} models fetched)[/dim]"
+                        self.console.print(msg)
                     else:
                         self.console.print("[yellow]Usage: /provider key <name> <api_key>[/yellow]")
+                    continue
+
+                if raw.lower().startswith("/provider refresh"):
+                    parts = raw.split()
+                    if len(parts) >= 3:
+                        name = parts[2]
+                        if await self.router.registry.refresh(name):
+                            p = self.router.registry.get_provider(name)
+                            self.console.print(f"[green]{name} refreshed — status: {p.status}, {len(p.models)} models[/green]")
+                        else:
+                            self.console.print(f"[yellow]Provider {name} not found[/yellow]")
+                    else:
+                        self.console.print("[yellow]Usage: /provider refresh <name>[/yellow]")
                     continue
 
                 # Multi-line input detection (code blocks)
