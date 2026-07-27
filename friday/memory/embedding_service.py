@@ -28,6 +28,6 @@ class EmbeddingService:
     async def is_available(self) -> bool:
         try:
             r = await (await self._get_client()).get(f"{self.base_url}/api/tags"); return r.status_code == 200
-        except: return False
+        except Exception: return False
     async def close(self):
         if self._client: await self._client.aclose(); self._client = None

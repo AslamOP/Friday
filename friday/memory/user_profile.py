@@ -1,3 +1,4 @@
+import asyncio
 import json, logging
 from pathlib import Path
 from typing import Any
@@ -16,8 +17,12 @@ class UserProfile:
         for k, v in updates.items():
             if k in self._profile and isinstance(self._profile[k], dict) and isinstance(v, dict): self._profile[k].update(v)
             else: self._profile[k] = v
-    def save(self, path):
-        p = Path(path) if isinstance(path, str) else path; p.parent.mkdir(parents=True, exist_ok=True); p.write_text(json.dumps(self._profile, indent=2))
-    def load(self, path):
+    async def save(self, path):
+        p = Path(path) if isinstance(path, str) else path; p.parent.mkdir(parents=True, exist_ok=True)
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, lambda: p.write_text(json.dumps(self._profile, indent=2)))
+    async def load(self, path):
         p = Path(path) if isinstance(path, str) else path
-        if p.exists(): self._profile = json.loads(p.read_text())
+        if not p.exists(): return
+        loop = asyncio.get_running_loop()
+        self._profile = await loop.run_in_executor(None, lambda: json.loads(p.read_text()))

@@ -1,3 +1,4 @@
+import asyncio
 import json, logging
 from datetime import datetime, timezone
 from pathlib import Path
@@ -30,8 +31,12 @@ class ProjectMemory:
     def delete_project(self, pid: str) -> bool:
         if pid in self._projects: del self._projects[pid]; return True
         return False
-    def save(self, path):
-        p = Path(path) if isinstance(path, str) else path; p.parent.mkdir(parents=True, exist_ok=True); p.write_text(json.dumps(self._projects, indent=2))
-    def load(self, path):
+    async def save(self, path):
+        p = Path(path) if isinstance(path, str) else path; p.parent.mkdir(parents=True, exist_ok=True)
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, lambda: p.write_text(json.dumps(self._projects, indent=2)))
+    async def load(self, path):
         p = Path(path) if isinstance(path, str) else path
-        if p.exists(): self._projects = json.loads(p.read_text())
+        if not p.exists(): return
+        loop = asyncio.get_running_loop()
+        self._projects = await loop.run_in_executor(None, lambda: json.loads(p.read_text()))

@@ -1,3 +1,4 @@
+import asyncio
 import json
 import re
 from pathlib import Path
@@ -84,7 +85,7 @@ class StudyAgent(BaseAgent):
         if not folder:
             return Result(success=True, output=WELCOME_MSG, agent=self.name)
 
-        notes = self._load_notes(folder)
+        notes = await self._load_notes(folder)
         online = self._cfg.get("online", False)
 
         if not notes:
@@ -97,13 +98,13 @@ class StudyAgent(BaseAgent):
         output = r.get("content", "")
 
         if want_save and output:
-            p = self._save_output(text, output)
+            p = await self._save_output(text, output)
             if p:
                 output += SAVED_MSG.format(p)
 
         return Result(success=True, output=output, agent=self.name)
 
-    def _load_notes(self, folder: str) -> str:
+    async def _load_notes(self, folder: str) -> str:
         path = Path(folder).expanduser().resolve()
         if not path.is_dir():
             return ""
@@ -112,11 +113,12 @@ class StudyAgent(BaseAgent):
                 ".html", ".css", ".json", ".yaml", ".yml", ".org", ".rst", ".tex",
                 ".csv", ".xml", ".sql", ".sh", ".go", ".rs", ".rb", ".php"}
         sections = []
+        loop = asyncio.get_running_loop()
 
         for f in sorted(path.rglob("*")):
             if f.suffix in exts and f.is_file():
                 try:
-                    content = f.read_text(errors="replace")
+                    content = await loop.run_in_executor(None, lambda: f.read_text(errors="replace"))
                     if len(content) > 12000:
                         content = content[:12000] + "\n... [truncated]"
                     rel = f.relative_to(path)
@@ -126,10 +128,11 @@ class StudyAgent(BaseAgent):
 
         return "\n\n".join(sections) if sections else ""
 
-    def _save_output(self, user_input: str, content: str) -> str | None:
+    async def _save_output(self, user_input: str, content: str) -> str | None:
         folder = Path(self._cfg.get("folder", "")).expanduser().resolve()
         out_dir = folder / ".friday_study"
         out_dir.mkdir(parents=True, exist_ok=True)
+        loop = asyncio.get_running_loop()
 
         topic = re.sub(r'[^a-zA-Z0-9]+', '_', user_input[:50]).strip('_')
         if not topic:
@@ -142,7 +145,7 @@ class StudyAgent(BaseAgent):
             n += 1
 
         try:
-            fpath.write_text(content)
+            await loop.run_in_executor(None, lambda: fpath.write_text(content))
             return str(fpath)
         except Exception:
             return None

@@ -4,7 +4,6 @@ from friday.router.provider_registry import ProviderRegistry
 from friday.tools.shell_sandbox import ShellSandbox
 from friday.tools.file_ops import FileOps
 import re
-import os
 from pathlib import Path
 
 CB = re.compile(r"```(\w+)?\n(.+?)```", re.DOTALL)

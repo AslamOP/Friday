@@ -21,6 +21,16 @@ def reset_singletons():
 
 
 class TestKnowledgeGraph:
+    @pytest.mark.asyncio
+    async def test_save_load(self, tmp_path):
+        kg = KnowledgeGraph()
+        kg.add_entity("x", "test", {"val": 1})
+        path = tmp_path / "kg.json"
+        await kg.save(str(path))
+        kg2 = KnowledgeGraph()
+        await kg2.load(str(path))
+        assert kg2.query_entity("x") is not None
+
     def test_add_and_query_entity(self):
         kg = KnowledgeGraph()
         kg.add_entity("py", "language", {"name": "Python"})
@@ -43,15 +53,6 @@ class TestKnowledgeGraph:
         assert len(results) == 1
         assert results[0]["id"] == "python"
 
-    def test_save_load(self, tmp_path):
-        kg = KnowledgeGraph()
-        kg.add_entity("x", "test", {"val": 1})
-        path = tmp_path / "kg.json"
-        kg.save(str(path))
-        kg2 = KnowledgeGraph()
-        kg2.load(str(path))
-        assert kg2.query_entity("x") is not None
-
     def test_singleton(self):
         assert KnowledgeGraph() is KnowledgeGraph()
 
@@ -59,6 +60,23 @@ class TestKnowledgeGraph:
 # --- UserProfile ---
 
 class TestUserProfile:
+    @pytest.mark.asyncio
+    async def test_save_load(self, tmp_path):
+        p = UserProfile()
+        p.update_profile({"name": "SavedUser"})
+        path = tmp_path / "profile.json"
+        await p.save(str(path))
+        p2 = UserProfile()
+        await p2.load(str(path))
+        assert p2.get_profile()["name"] == "SavedUser"
+
+    @pytest.mark.asyncio
+    async def test_load_nonexistent(self):
+        p = UserProfile()
+        from pathlib import Path
+        await p.load(Path("/nonexistent/path.json"))
+        assert p.get_profile()["name"] == "Architect"
+
     def test_default_profile(self):
         p = UserProfile()
         prof = p.get_profile()
@@ -69,15 +87,6 @@ class TestUserProfile:
         p = UserProfile()
         p.update_profile({"name": "TestUser"})
         assert p.get_profile()["name"] == "TestUser"
-
-    def test_save_load(self, tmp_path):
-        p = UserProfile()
-        p.update_profile({"name": "SavedUser"})
-        path = tmp_path / "profile.json"
-        p.save(str(path))
-        p2 = UserProfile()
-        p2.load(str(path))
-        assert p2.get_profile()["name"] == "SavedUser"
 
     def test_nested_dict_update(self):
         p = UserProfile()
@@ -99,12 +108,6 @@ class TestUserProfile:
         p.update_profile({"custom_key": "custom_value"})
         assert p.get_profile()["custom_key"] == "custom_value"
 
-    def test_load_nonexistent(self):
-        p = UserProfile()
-        from pathlib import Path
-        p.load(Path("/nonexistent/path.json"))
-        assert p.get_profile()["name"] == "Architect"
-
     def test_singleton(self):
         assert UserProfile() is UserProfile()
 
@@ -112,6 +115,16 @@ class TestUserProfile:
 # --- ProjectMemory ---
 
 class TestProjectMemory:
+    @pytest.mark.asyncio
+    async def test_save_load(self, tmp_path):
+        pm = ProjectMemory()
+        pm.create_project("SaveTest")
+        path = tmp_path / "projects.json"
+        await pm.save(str(path))
+        pm2 = ProjectMemory()
+        await pm2.load(str(path))
+        assert len(pm2.list_projects()) == 1
+
     def test_create_project(self):
         pm = ProjectMemory()
         pid = pm.create_project("Test", "A test project")
@@ -131,15 +144,6 @@ class TestProjectMemory:
         assert pm.delete_project(pid) is True
         assert pm.get_project(pid) is None
         assert pm.delete_project("fake") is False
-
-    def test_save_load(self, tmp_path):
-        pm = ProjectMemory()
-        pm.create_project("SaveTest")
-        path = tmp_path / "projects.json"
-        pm.save(str(path))
-        pm2 = ProjectMemory()
-        pm2.load(str(path))
-        assert len(pm2.list_projects()) == 1
 
     def test_update_project(self):
         pm = ProjectMemory()

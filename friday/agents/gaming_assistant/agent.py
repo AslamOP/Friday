@@ -1,3 +1,4 @@
+import asyncio
 from ..base import BaseAgent, Context, Result, Task
 from . import prompts
 from friday.router.provider_registry import ProviderRegistry
@@ -7,19 +8,20 @@ from pathlib import Path
 CONFIG_PATH = Path("~/.config/friday/gaming_profile.json").expanduser()
 
 
-def _load_games():
+async def _load_games():
     try:
         if CONFIG_PATH.exists():
-            return json.loads(CONFIG_PATH.read_text())
+            loop = asyncio.get_running_loop()
+            return await loop.run_in_executor(None, lambda: json.loads(CONFIG_PATH.read_text()))
     except Exception:
         pass
     return {}
 
 
-def _save_games(data):
+async def _save_games(data):
     try:
-        CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
-        CONFIG_PATH.write_text(json.dumps(data, indent=2))
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, lambda: (CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True), CONFIG_PATH.write_text(json.dumps(data, indent=2))))
     except Exception:
         pass
 
@@ -34,7 +36,7 @@ class GamingAssistantAgent(BaseAgent):
     async def handle(self, task, context):
         text = context.user_input
         low = text.lower()
-        games = _load_games()
+        games = await _load_games()
 
         # handle "i play <games>" to register games
         if low.startswith("i play") or low.startswith("i am playing") or "play" in low and len(low) < 100:
@@ -47,7 +49,7 @@ class GamingAssistantAgent(BaseAgent):
                 gn = g.strip()
                 if gn and gn not in games:
                     games[gn] = {"known": True, "sessions": 0}
-            _save_games(games)
+            await _save_games(games)
 
         game_context = ""
         if games:
@@ -63,7 +65,7 @@ class GamingAssistantAgent(BaseAgent):
         # track session
         for g in games:
             games[g]["sessions"] = games[g].get("sessions", 0) + 1
-        _save_games(games)
+        await _save_games(games)
 
         return Result(success=True, output=output, agent=self.name)
 

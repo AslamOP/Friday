@@ -1,3 +1,4 @@
+import asyncio
 from pathlib import Path
 from dataclasses import dataclass, field
 from friday.memory.knowledge_graph import KnowledgeGraph
@@ -16,12 +17,14 @@ class FileIndexer:
         p = Path(path) if isinstance(path, str) else path
         if not p.exists() or not p.is_file(): return False
         try:
-            h = hashlib.sha256(p.read_bytes()).hexdigest()
+            loop = asyncio.get_running_loop()
+            h = await loop.run_in_executor(None, lambda: hashlib.sha256(p.read_bytes()).hexdigest())
             if h in self._seen: return False
-            content = p.read_text(errors="replace"); eid = f"file:{p.resolve()}"
+            content = await loop.run_in_executor(None, lambda: p.read_text(errors="replace"))
+            eid = f"file:{p.resolve()}"
             self._kg.add_entity(eid, "file", {"path": str(p.resolve()), "size": p.stat().st_size})
             self._vs.add_entry(eid, content[:5000]); self._seen.add(h); return True
-        except: return False
+        except Exception: return False
     async def index_directory(self, path, recursive=True):
         report = IndexReport(); root = Path(path) if isinstance(path, str) else path
         if not root.exists() or not root.is_dir(): return report

@@ -36,9 +36,10 @@ class SystemMonitor:
     async def collect(self) -> MonitorResult:
         try:
             metrics = SystemMetrics()
-            self._cpu(metrics)
-            self._memory(metrics)
-            self._disk(metrics)
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(None, lambda: self._cpu(metrics))
+            await loop.run_in_executor(None, lambda: self._memory(metrics))
+            await loop.run_in_executor(None, lambda: self._disk(metrics))
             await self._gpu(metrics)
             lines = [
                 f"CPU:  {metrics.cpu_percent}% ({metrics.cpu_cores} cores)" +

@@ -1,3 +1,4 @@
+import asyncio
 import json, logging
 from pathlib import Path
 from typing import Any
@@ -24,10 +25,13 @@ class KnowledgeGraph:
     def get_relations(self, eid: str | None = None):
         if eid is None: return self._relations
         return [r for r in self._relations if r["source"] == eid or r["target"] == eid]
-    def save(self, path):
+    async def save(self, path):
         p = Path(path) if isinstance(path, str) else path; p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(json.dumps({"entities": self._graph, "relations": self._relations}, indent=2))
-    def load(self, path):
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, lambda: p.write_text(json.dumps({"entities": self._graph, "relations": self._relations}, indent=2)))
+    async def load(self, path):
         p = Path(path) if isinstance(path, str) else path
         if not p.exists(): return
-        d = json.loads(p.read_text()); self._graph = d.get("entities", {}); self._relations = d.get("relations", [])
+        loop = asyncio.get_running_loop()
+        d = await loop.run_in_executor(None, lambda: json.loads(p.read_text()))
+        self._graph = d.get("entities", {}); self._relations = d.get("relations", [])

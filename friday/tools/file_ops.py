@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -13,11 +14,16 @@ class FileOps:
         try:
             if not p.exists(): return FileResult(success=False, output=f"Not found: {p}")
             if p.stat().st_size > _MAX_SIZE: return FileResult(success=False, output=f"Too large: {p}")
-            return FileResult(success=True, output=p.read_text(errors="replace"), data={"path":str(p)})
+            loop = asyncio.get_running_loop()
+            text = await loop.run_in_executor(None, lambda: p.read_text(errors="replace"))
+            return FileResult(success=True, output=text, data={"path":str(p)})
         except Exception as e: return FileResult(success=False, output=str(e))
     async def write(self, path, content: str) -> FileResult:
         p = self._resolve(path)
-        try: p.parent.mkdir(parents=True, exist_ok=True); p.write_text(content); return FileResult(success=True, output=f"Written {len(content)}b to {p}")
+        try:
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(None, lambda: (p.parent.mkdir(parents=True, exist_ok=True), p.write_text(content)))
+            return FileResult(success=True, output=f"Written {len(content)}b to {p}")
         except Exception as e: return FileResult(success=False, output=str(e))
     async def search(self, pattern: str, root=None) -> FileResult:
         base = self._resolve(root) if root else self._workspace

@@ -14,7 +14,7 @@ class PersistenceManager:
         errors = []
         for name, path, obj in [("kg", self._kg_path, KnowledgeGraph()), ("profile", self._profile_path, UserProfile()), ("projects", self._projects_path, ProjectMemory())]:
             try:
-                obj.load(path)
+                await obj.load(path)
             except Exception as e:
                 errors.append(f"{name}: {e}")
                 logger.warning("Failed to load %s from %s: %s", name, path, e)
@@ -25,7 +25,7 @@ class PersistenceManager:
     async def save_all(self):
         for name, path, obj in [("kg", self._kg_path, KnowledgeGraph()), ("profile", self._profile_path, UserProfile()), ("projects", self._projects_path, ProjectMemory())]:
             try:
-                obj.save(path)
+                await obj.save(path)
             except Exception as e:
                 logger.warning("Failed to save %s to %s: %s", name, path, e)
     async def start_auto_save(self):

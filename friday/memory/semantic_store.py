@@ -1,3 +1,4 @@
+import asyncio
 import json, logging, uuid
 from pathlib import Path
 from friday.memory.embedding_service import EmbeddingService
@@ -17,16 +18,17 @@ class SemanticStore:
                 logger.info("Loaded %d entries from %s", len(self._entries), p)
             except Exception as e:
                 logger.warning("Failed to load semantic store: %s", e)
-    def _save(self):
+    async def _save(self):
         p = self._path()
         try:
-            with open(p, "w") as f: json.dump([e for e in self._entries.values()], f, indent=2)
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(None, lambda: p.write_text(json.dumps([e for e in self._entries.values()], indent=2)))
         except Exception as e:
             logger.warning("Failed to save semantic store: %s", e)
     async def add_entry(self, eid: str, text: str, metadata: dict | None = None):
         emb = await self._emb.embed(text)
         self._entries[eid] = {"id": eid, "text": text, "embedding": emb, "metadata": metadata or {}}
-        self._save()
+        await self._save()
     async def search(self, query: str, top_k: int = 5) -> list[dict]:
         qe = await self._emb.embed(query)
         if not qe or not self._entries: return []

@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 from dataclasses import dataclass, field, asdict
@@ -84,7 +85,7 @@ class ProviderRegistry:
             if p.name not in self._providers:
                 self._providers[p.name] = p
         self._load_keys_from_env()
-        self._save()
+        self._save_sync()
         logger.info("Loaded %d providers", len(self._providers))
 
     def _load_keys_from_env(self):
@@ -109,10 +110,14 @@ class ProviderRegistry:
         except Exception as e:
             logger.warning("Failed to load .env keys: %s", e)
 
-    def _save(self):
+    def _save_sync(self):
         self._path.parent.mkdir(parents=True, exist_ok=True)
         data = [asdict(p) for p in self._providers.values()]
         self._path.write_text(json.dumps(data, indent=2))
+
+    async def _save(self):
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, self._save_sync)
 
     def list_providers(self) -> list[ProviderConfig]:
         return sorted(self._providers.values(), key=lambda p: p.priority)
@@ -120,33 +125,33 @@ class ProviderRegistry:
     def get_provider(self, name: str) -> ProviderConfig | None:
         return self._providers.get(name)
 
-    def add_provider(self, name: str, type: str, endpoint: str = "",
-                     api_key: str = "", models: list[str] | None = None,
-                     priority: int = 50) -> ProviderConfig:
+    async def add_provider(self, name: str, type: str, endpoint: str = "",
+                           api_key: str = "", models: list[str] | None = None,
+                           priority: int = 50) -> ProviderConfig:
         p = ProviderConfig(name=name, type=type, endpoint=endpoint,
                            api_key=api_key, models=models or [],
                            priority=priority)
         self._providers[name] = p
-        self._save()
+        await self._save()
         logger.info("Added provider: %s (%s)", name, type)
         return p
 
-    def remove_provider(self, name: str) -> bool:
+    async def remove_provider(self, name: str) -> bool:
         if name in ("zen", "openrouter", "openai", "anthropic", "google", "github-copilot", "ollama"):
             logger.warning("Cannot remove default provider: %s", name)
             return False
         if name in self._providers:
             del self._providers[name]
-            self._save()
+            await self._save()
             logger.info("Removed provider: %s", name)
             return True
         return False
 
-    def set_key(self, name: str, api_key: str):
+    async def set_key(self, name: str, api_key: str):
         p = self._providers.get(name)
         if p:
             p.api_key = api_key
-            self._save()
+            await self._save()
 
     async def fetch_models(self, name: str) -> list[str]:
         p = self._providers.get(name)
@@ -165,7 +170,7 @@ class ProviderRegistry:
                     models = [m["id"] for m in data.get("data", []) if "id" in m]
                     if models:
                         p.models = models
-                        self._save()
+                        await self._save()
                         return models
         except Exception as e:
             logger.debug("Could not fetch models for %s: %s", name, e)
@@ -180,11 +185,11 @@ class ProviderRegistry:
             await self.fetch_models(name)
         return True
 
-    def set_enabled(self, name: str, enabled: bool):
+    async def set_enabled(self, name: str, enabled: bool):
         p = self._providers.get(name)
         if p:
             p.enabled = enabled
-            self._save()
+            await self._save()
 
     def get_online_providers(self) -> list[ProviderConfig]:
         return [p for p in self.list_providers()
@@ -212,7 +217,7 @@ class ProviderRegistry:
                 p.status = "online" if r.status_code in (200, 201, 401, 403) else "offline"
         except Exception:
             p.status = "offline"
-        self._save()
+        await self._save()
         return p.status
 
     async def check_all(self):

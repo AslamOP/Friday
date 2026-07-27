@@ -955,6 +955,9 @@ class ProfilePanel(QWidget):
             self.set_profile(self._profile_cache)
 
     def _save(self):
+        asyncio.ensure_future(self._async_save())
+
+    async def _async_save(self):
         try:
             from pathlib import Path
 
@@ -985,7 +988,7 @@ class ProfilePanel(QWidget):
             }
             up = UserProfile()
             up.update_profile(updates)
-            up.save(str(cfg_path))
+            await up.save(str(cfg_path))
 
             self._profile_cache = up.get_profile()
             self.set_profile(self._profile_cache)
@@ -1300,9 +1303,12 @@ class SettingsDialog(QFrame):
         layout.addWidget(close_btn)
 
     def _toggle_provider(self, name, checked):
+        asyncio.ensure_future(self._async_toggle_provider(name, checked))
+
+    async def _async_toggle_provider(self, name, checked):
         try:
             from friday.router.provider_registry import ProviderRegistry
-            ProviderRegistry().set_enabled(name, bool(checked))
+            await ProviderRegistry().set_enabled(name, bool(checked))
         except Exception:
             pass
 

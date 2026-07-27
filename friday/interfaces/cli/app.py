@@ -104,7 +104,7 @@ class FridayREPL:
         t.add_column("Type", style="yellow")
         t.add_column("Status", style="magenta")
         t.add_column("Models")
-        for p in self.router.registry.list_providers():
+        for p in self.router.list_providers():
             status = p.status
             key_set = "✓" if p.api_key else "✗"
             label = f"{status} key:{key_set}" if p.type == "cloud" else status
@@ -244,9 +244,9 @@ class FridayREPL:
                         name = parts[2]
                         ptype = parts[3] if len(parts) > 3 else "cloud"
                         endpoint = parts[4] if len(parts) > 4 else ""
-                        self.router.registry.add_provider(name, ptype, endpoint=endpoint)
+                        await self.router.add_provider(name, ptype, endpoint=endpoint)
                         if endpoint:
-                            status = await self.router.registry.check_status(name)
+                            status = await self.router.check_status(name)
                             self.console.print(f"[green]Added {name} ({ptype}) — status: {status}[/green]")
                         else:
                             self.console.print(f"[green]Added {name} ({ptype}). Set its API key: /provider key {name} <key>[/green]")
@@ -256,7 +256,7 @@ class FridayREPL:
 
                 if raw.lower().startswith("/provider remove"):
                     parts = raw.split()
-                    if len(parts) >= 3 and self.router.registry.remove_provider(parts[2]):
+                    if len(parts) >= 3 and await self.router.remove_provider(parts[2]):
                         self.console.print(f"[green]Removed {parts[2]}[/green]")
                     else:
                         self.console.print("[yellow]Cannot remove or not found[/yellow]")
@@ -266,9 +266,9 @@ class FridayREPL:
                     parts = raw.split(maxsplit=2)
                     if len(parts) >= 3:
                         name, key = parts[1], parts[2]
-                        self.router.registry.set_key(name, key)
-                        status = await self.router.registry.check_status(name)
-                        models = await self.router.registry.fetch_models(name)
+                        await self.router.set_key(name, key)
+                        status = await self.router.check_status(name)
+                        models = await self.router.fetch_models(name)
                         msg = f"[green]{name} key set — status: {status}[/green]"
                         if models:
                             msg += f" [dim]({len(models)} models fetched)[/dim]"
@@ -281,8 +281,8 @@ class FridayREPL:
                     parts = raw.split()
                     if len(parts) >= 3:
                         name = parts[2]
-                        if await self.router.registry.refresh(name):
-                            p = self.router.registry.get_provider(name)
+                        if await self.router.refresh(name):
+                            p = self.router.get_provider(name)
                             self.console.print(f"[green]{name} refreshed — status: {p.status}, {len(p.models)} models[/green]")
                         else:
                             self.console.print(f"[yellow]Provider {name} not found[/yellow]")
@@ -299,7 +299,7 @@ class FridayREPL:
                 intent = await self.orchestrator.intent_parser.parse(raw)
                 agent = await self.orchestrator.agent_router.route(intent)
 
-                providers = [p.name for p in self.router.registry.get_online_providers()]
+                providers = [p.name for p in self.router.get_online_providers()]
                 route_info = providers[0] if providers else "offline"
                 self.console.print(f"[dim]{agent.name} → {route_info}[/dim]")
 
