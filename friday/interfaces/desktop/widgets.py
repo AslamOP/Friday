@@ -633,38 +633,43 @@ class AgentPanel(QFrame):
                 border-radius: 10px;
             }
         """)
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(10, 8, 10, 8)
-        layout.setSpacing(2)
+        self._layout = QVBoxLayout(self)
+        self._layout.setContentsMargins(10, 8, 10, 8)
+        self._layout.setSpacing(2)
 
         h = QLabel("AGENTS")
         h.setStyleSheet("color: #00d4ff; font-family: monospace; font-size: 10px; font-weight: bold; letter-spacing: 1px;")
-        layout.addWidget(h)
-        layout.addSpacing(4)
+        self._layout.addWidget(h)
+        self._layout.addSpacing(4)
 
         self._rows = {}
         for name in ["Analyzer", "Coder", "Planner", "Researcher", "Automator", "Tutor"]:
-            row = QHBoxLayout()
-            row.setSpacing(6)
-            dot = QLabel("○")
-            dot.setFixedWidth(12)
-            dot.setStyleSheet("color: #4a6a8a; font-size: 11px;")
-            row.addWidget(dot)
+            self._add_row(name)
 
-            lbl = QLabel(name)
-            lbl.setStyleSheet("color: #8aaac0; font-family: monospace; font-size: 11px;")
-            row.addWidget(lbl)
-            row.addStretch()
+    def _add_row(self, name: str):
+        if name in self._rows:
+            return
+        row = QHBoxLayout()
+        row.setSpacing(6)
+        dot = QLabel("○")
+        dot.setFixedWidth(12)
+        dot.setStyleSheet("color: #4a6a8a; font-size: 11px;")
+        row.addWidget(dot)
 
-            st = QLabel("idle")
-            st.setStyleSheet("color: #4a6a8a; font-family: monospace; font-size: 10px;")
-            row.addWidget(st)
-            layout.addLayout(row)
-            self._rows[name] = (dot, st)
+        lbl = QLabel(name)
+        lbl.setStyleSheet("color: #8aaac0; font-family: monospace; font-size: 11px;")
+        row.addWidget(lbl)
+        row.addStretch()
+
+        st = QLabel("idle")
+        st.setStyleSheet("color: #4a6a8a; font-family: monospace; font-size: 10px;")
+        row.addWidget(st)
+        self._layout.addLayout(row)
+        self._rows[name] = (dot, st)
 
     def set_status(self, name: str, status: str):
         if name not in self._rows:
-            return
+            self._add_row(name)
         dot, st = self._rows[name]
         if status == "running":
             dot.setText("●"); dot.setStyleSheet("color: #00d4ff; font-size: 11px;")
@@ -1317,13 +1322,12 @@ class SettingsDialog(QFrame):
         self._refresh_status()
 
     def _refresh_status(self):
-        try:
-            import asyncio
+        asyncio.ensure_future(self._async_refresh_status())
 
+    async def _async_refresh_status(self):
+        try:
             from friday.router.provider_registry import ProviderRegistry
-            loop = asyncio.new_event_loop()
-            loop.run_until_complete(ProviderRegistry().check_all())
-            loop.close()
+            await ProviderRegistry().check_all()
             providers = ProviderRegistry().list_providers()
             status_colors = {"online": "#00ff88", "offline": "#ff3355", "unknown": "#6b8caa"}
             for p in providers:

@@ -41,6 +41,8 @@ class Orchestrator:
         context = await self.context_engine.load_context(user_input, intent)
         await self.context_engine.remember("user", user_input, {"intent": intent.type})
 
+        self.publish_event("agent:start", {"agent": intent.type, "input": user_input})
+
         if self._delegator:
             subtasks = await self._delegator.plan(user_input)
             if len(subtasks) > 1:
@@ -49,10 +51,14 @@ class Orchestrator:
                 merged = self._delegator.merge(results)
                 result = Result(success=True, output=merged, agent="collaboration", data={"subtask_count": len(subtasks)})
                 await self.context_engine.remember("assistant", merged[:1000], {"agent":"collaboration","subtasks":len(subtasks)})
-                await self.persistence.save_all(); return result
+                await self.persistence.save_all()
+                self.publish_event("agent:done", {"agent": "collaboration", "success": True})
+                return result
 
         agent = await self.agent_router.route(intent, context)
+        self.publish_event("agent:status", {"agent": agent.name, "status": "running"})
         result = await agent.handle(Task(id="", type=intent.type, payload=intent.entities), context)
+        self.publish_event("agent:status", {"agent": agent.name, "status": "done" if result.success else "error"})
 
         if result.subtasks and self._delegator:
             sub_results = await self._delegator.dispatch(result.subtasks, context)
@@ -62,6 +68,7 @@ class Orchestrator:
         extracted = await self.entity_extractor.extract_and_store(f"{user_input} {result.output[:500]}")
         if extracted: logger.debug("Extracted %d entities", extracted)
         await self.persistence.save_all()
+        self.publish_event("agent:done", {"agent": result.agent, "success": result.success})
         return result
 
     async def remember_response(self, user_input: str, output: str, agent_name: str, intent_type: str) -> Result:

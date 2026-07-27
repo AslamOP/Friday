@@ -93,10 +93,19 @@ class FridayWindow(QMainWindow):
             ]:
                 o.register_agent(ac)
             await o.initialize()
+            o.subscribe_event("agent:status", self._on_agent_status)
+            o.subscribe_event("agent:start", lambda d: self._output.append_output(f"Agent {d.get('agent', '?')} processing...", "info"))
+            o.subscribe_event("agent:done", lambda d: self._output.append_output(f"Agent {d.get('agent', '?')} completed.", "success" if d.get("success") else "error"))
             self._output.append_output("Orchestrator ready — all agents online.", "success")
         except Exception as e:
             logger.warning("Orchestrator init failed: %s", e)
-            self._output.append_output("Backend agents unavailable. Run daemon for full support.", "warning")
+            self._output.append_output("Backend agents unavailable.", "warning")
+
+    def _on_agent_status(self, data: dict):
+        agent = data.get("agent", "")
+        status = data.get("status", "")
+        if agent and status:
+            self._agent_panel.set_status(agent, status)
 
     def _get_version(self):
         try:
