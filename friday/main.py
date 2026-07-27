@@ -1,10 +1,12 @@
 import asyncio
+import json
 import logging
 import signal
 import sys
 
-from friday.config import get_config
 from friday import __version__
+from friday.config import get_config
+from friday.core.ipc import DAEMON_SOCK, UnixServer
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger("friday")
@@ -37,6 +39,29 @@ async def daemon():
     await o.initialize()
     logger.info("FRIDAY v%s daemon ready", __version__)
 
+    ipc_server = UnixServer(DAEMON_SOCK)
+
+    async def ipc_handler(reader, writer):
+        try:
+            data = await reader.readline()
+            cmd = json.loads(data.decode())
+            cmd_type = cmd.get("type", "")
+            resp = {"ok": False, "error": "unknown command"}
+            if cmd_type == "route":
+                from friday.router.provider_registry import ProviderRegistry
+                providers = [p.name for p in ProviderRegistry().get_online_providers()]
+                resp = {"ok": True, "providers": providers}
+            elif cmd_type == "status":
+                resp = {"ok": True, "version": __version__, "agents": len(o.agent_router._agents)}
+            writer.write((json.dumps(resp) + "\n").encode())
+            await writer.drain()
+        except Exception as e:
+            logger.debug("IPC handler error: %s", e)
+        finally:
+            writer.close()
+
+    await ipc_server.start(ipc_handler)
+
     stop = asyncio.Event()
 
     def _shutdown():
@@ -48,6 +73,7 @@ async def daemon():
         loop.add_signal_handler(sig, _shutdown)
 
     await stop.wait()
+    await ipc_server.stop()
     await o.persistence.save_all()
     await o.persistence.stop()
     logger.info("FRIDAY daemon stopped")

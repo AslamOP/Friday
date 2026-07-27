@@ -4,6 +4,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from friday.core.ipc import GUI_SOCK, is_running, send_command_sync
+
 logger = logging.getLogger("friday.tray")
 
 _ICON = None
@@ -30,6 +32,9 @@ class FridayTray:
         self._running = False
 
     def _launch_gui(self):
+        if is_running(GUI_SOCK):
+            send_command_sync(GUI_SOCK, {"type": "focus"})
+            return
         friday_dir = Path(__file__).resolve().parent.parent.parent.parent
         main_py = friday_dir / "friday" / "main.py"
         subprocess.Popen(

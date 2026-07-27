@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 import subprocess
 import sys
@@ -25,6 +26,7 @@ from friday.agents.planner import PlannerAgent
 from friday.agents.research_scientist import ResearchScientistAgent
 from friday.agents.software_engineer import SoftwareEngineerAgent
 from friday.agents.study import StudyAgent
+from friday.core.ipc import GUI_SOCK, UnixServer, is_running, send_command
 from friday.core.orchestrator import get_orchestrator
 from friday.interfaces.audio import SpeechToText
 from friday.tools.system_monitor import SystemMonitor  # noqa: direct import to avoid bs4 dep
@@ -74,6 +76,11 @@ class FridayWindow(QMainWindow):
         self._center_on_screen()
         self._update_mask()
 
+        if is_running(GUI_SOCK):
+            send_command_sync(GUI_SOCK, {"type": "focus"})
+            QApplication.quit()
+            return
+
         self._output.append_output("FRIDAY AI OS v" + self._get_version(), "system")
         self._output.append_output("System initialized. All systems online.", "success")
         self._output.append_output("Type a command or click the mic for voice.", "info")
@@ -81,7 +88,26 @@ class FridayWindow(QMainWindow):
         self._load_profile_data()
         self._setup_shortcuts()
         self._setup_tray()
+        self._setup_ipc()
         asyncio.ensure_future(self._init_orchestrator())
+
+    def _setup_ipc(self):
+        async def _handler(reader, writer):
+            try:
+                data = await reader.readline()
+                cmd = json.loads(data.decode())
+                if cmd.get("type") == "focus":
+                    self.activateWindow()
+                    self.raise_()
+                    self.showNormal()
+                writer.write(b'{"ok": true}\n')
+                await writer.drain()
+            except Exception:
+                pass
+            finally:
+                writer.close()
+
+        asyncio.ensure_future(UnixServer(GUI_SOCK).start(_handler))
 
     async def _init_orchestrator(self):
         try:
