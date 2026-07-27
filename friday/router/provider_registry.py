@@ -20,9 +20,6 @@ class ProviderConfig:
 
 
 _DEFAULTS: list[ProviderConfig] = [
-    ProviderConfig(name="ollama", type="local", endpoint="http://127.0.0.1:11434",
-                   models=["llama3.2", "codellama", "nomic-embed-text"],
-                   priority=30, status="unknown"),
     ProviderConfig(name="zen", type="cloud", endpoint="https://opencode.ai/zen/v1",
                    models=["north-mini-code-free", "nemotron-3-ultra-free",
                            "deepseek-v4-flash-free", "big-pickle", "mimo-v2.5-free",
@@ -40,6 +37,22 @@ _DEFAULTS: list[ProviderConfig] = [
                            "nvidia/nemotron-nano-9b-v2:free",
                            "openai/gpt-oss-20b:free"],
                    priority=20, status="unknown"),
+    ProviderConfig(name="openai", type="cloud", endpoint="https://api.openai.com/v1",
+                   models=["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-3.5-turbo"],
+                   priority=40, status="unknown"),
+    ProviderConfig(name="anthropic", type="cloud", endpoint="https://api.anthropic.com/v1",
+                   models=["claude-sonnet-4-20250514", "claude-3-5-sonnet-latest",
+                           "claude-3-5-haiku-latest"],
+                   priority=50, status="unknown"),
+    ProviderConfig(name="google", type="cloud", endpoint="https://generativelanguage.googleapis.com/v1beta/openai",
+                   models=["gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.0-flash"],
+                   priority=60, status="unknown"),
+    ProviderConfig(name="github-copilot", type="cloud", endpoint="https://api.githubcopilot.com",
+                   models=["gpt-4o-copilot", "claude-sonnet-copilot"],
+                   priority=70, status="unknown"),
+    ProviderConfig(name="ollama", type="local", endpoint="http://127.0.0.1:11434",
+                   models=["llama3.2", "codellama", "nomic-embed-text"],
+                   priority=30, status="unknown"),
 ]
 
 
@@ -65,14 +78,14 @@ class ProviderRegistry:
                 for d in raw:
                     p = ProviderConfig(**d)
                     self._providers[p.name] = p
-                logger.info("Loaded %d providers from %s", len(self._providers), self._path)
-                return
             except Exception as e:
                 logger.warning("Failed to load providers: %s", e)
         for p in _DEFAULTS:
-            self._providers[p.name] = p
+            if p.name not in self._providers:
+                self._providers[p.name] = p
         self._load_keys_from_env()
         self._save()
+        logger.info("Loaded %d providers", len(self._providers))
 
     def _load_keys_from_env(self):
         env_path = Path(".env")
@@ -119,7 +132,7 @@ class ProviderRegistry:
         return p
 
     def remove_provider(self, name: str) -> bool:
-        if name in ("ollama", "zen", "openrouter"):
+        if name in ("zen", "openrouter", "openai", "anthropic", "google", "github-copilot", "ollama"):
             logger.warning("Cannot remove default provider: %s", name)
             return False
         if name in self._providers:
@@ -161,7 +174,7 @@ class ProviderRegistry:
             elif name == "openrouter":
                 url = f"{p.endpoint}/auth/key"
             else:
-                url = f"{p.endpoint}/models"
+                url = p.endpoint
             async with httpx.AsyncClient(timeout=3) as c:
                 r = await c.get(url, headers=headers)
                 p.status = "online" if r.status_code in (200, 201, 401, 403) else "offline"

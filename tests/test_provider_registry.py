@@ -28,9 +28,8 @@ class TestProviderRegistry:
     def test_default_providers_loaded(self):
         providers = self.reg.list_providers()
         names = [p.name for p in providers]
-        assert "ollama" in names
-        assert "zen" in names
-        assert "openrouter" in names
+        for n in ("zen", "openrouter", "openai", "anthropic", "google", "github-copilot", "ollama"):
+            assert n in names
 
     def test_add_provider(self):
         self.reg.add_provider("custom", "cloud", endpoint="https://api.example.com",
@@ -47,9 +46,8 @@ class TestProviderRegistry:
         assert self.reg.get_provider("test-provider") is None
 
     def test_cannot_remove_defaults(self):
-        assert self.reg.remove_provider("ollama") is False
-        assert self.reg.remove_provider("zen") is False
-        assert self.reg.remove_provider("openrouter") is False
+        for name in ("zen", "openrouter", "openai", "anthropic", "google", "github-copilot", "ollama"):
+            assert self.reg.remove_provider(name) is False
 
     def test_set_key(self):
         self.reg.set_key("zen", "sk-test")
