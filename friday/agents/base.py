@@ -24,3 +24,13 @@ class BaseAgent:
     def __init__(self, model_preference: str = ""): self.model_preference = model_preference
     async def handle(self, task: Task, context: Context) -> Result: raise NotImplementedError
     async def can_handle(self, intent: str) -> float: return 0.0
+
+    def send_message(self, content: str, recipient: str = "",
+                     topic: str = "general", reply_to: str = "",
+                     data: dict | None = None) -> str:
+        from friday.core.agent_bus import AgentBus
+        return AgentBus().send(self.name, content, recipient, topic, reply_to, data)
+
+    def receive_messages(self, clear: bool = True) -> list[dict]:
+        from friday.core.agent_bus import AgentBus
+        return [m.__dict__ for m in AgentBus().receive(self.name, clear)]

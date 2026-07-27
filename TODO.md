@@ -46,8 +46,12 @@
 - [x] Persistence with auto-save
 - [x] CLI REPL with help, status, history
 
+## Done
+
+- [x] System monitor tool (CPU, RAM, disk, GPU via psutil + nvidia-smi)
+- [x] AgentBus protocol — agents send/receive messages, subscribe to topics
+- [x] BaseAgent.send_message() / receive_messages() for every agent
+
 ## Up Next
 
 - [ ] Web dashboard (optional — CLI is primary)
-- [ ] System monitor tool (CPU, RAM, disk, GPU)
-- [ ] FRIDAY-to-FRIDAY agent communication protocol
