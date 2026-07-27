@@ -87,5 +87,17 @@ class SpeechToText:
         if result:
             return result
 
-        logger.info("Google STT failed, no fallback available")
+        def _sphinx():
+            try:
+                return recognizer.recognize_sphinx(audio)
+            except ImportError:
+                logger.debug("pocketsphinx not installed, no offline fallback")
+                return None
+            except Exception:
+                return None
+
+        sphinx_result = await loop.run_in_executor(None, _sphinx)
+        if sphinx_result:
+            return sphinx_result
+
         return ""

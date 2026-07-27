@@ -18,7 +18,7 @@ from PyQt6.QtWidgets import (
 from friday.interfaces.audio import SpeechToText
 from friday.tools.system_monitor import SystemMonitor  # noqa: direct import to avoid bs4 dep
 
-from .widgets import AgentPanel, CommandBar, HoloSphere, OutputArea, ProfilePanel, SettingsDialog, StatPanel, TitleBar
+from .widgets import AgentPanel, CommandBar, HoloSphere, OutputArea, ProfilePanel, SettingsDialog, StatPanel, TitleBar, UpdatePanel
 
 logger = logging.getLogger("friday.desktop")
 
@@ -98,6 +98,7 @@ class FridayWindow(QMainWindow):
                 self.width() - self._resize_grip.width() - 4,
                 self.height() - self._resize_grip.height() - 4,
             )
+        self._position_update_panel()
         super().resizeEvent(event)
 
     def paintEvent(self, event):
@@ -189,6 +190,16 @@ class FridayWindow(QMainWindow):
         main_layout.addWidget(self._output)
 
         main_layout.addSpacing(6)
+
+        self._update_panel = UpdatePanel(central)
+        self._position_update_panel()
+
+    def _position_update_panel(self):
+        if hasattr(self, '_update_panel') and self._update_panel:
+            self._update_panel.move(
+                self.width() - self._update_panel.width() - 12,
+                self.height() - self._update_panel.height() - 10,
+            )
 
     def _start_monitor(self):
         self._timer = QTimer(self)

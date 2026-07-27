@@ -1,5 +1,8 @@
+import asyncio
 import math
+import os
 import random
+import sys
 
 from PyQt6.QtCore import QPointF, QRectF, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import (
@@ -1073,6 +1076,112 @@ class _Card(QFrame):
 
     def add_widget(self, w):
         self._layout.addWidget(w)
+
+
+class UpdatePanel(QWidget):
+    clicked = pyqtSignal()
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._version = "?"
+        self._status = "checking..."
+        self._latest = None
+        self._installing = False
+        try:
+            from friday import __version__
+            self._version = __version__
+        except ImportError:
+            pass
+        self.setFixedSize(200, 32)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._update_style()
+        self._check()
+
+    def _update_style(self):
+        color = "#ffaa00" if self._latest and self._latest != self._version else "#4a8a6a"
+        status_text = self._get_status_text()
+        self.setStyleSheet(f"""
+            UpdatePanel {{
+                background: rgba(0,0,0,0.55);
+                border: 1px solid rgba(255,255,255,0.06);
+                border-radius: 6px;
+            }}
+            QWidget {{
+                color: {color};
+                font-family: monospace;
+                font-size: 10px;
+            }}
+        """)
+        self._status = status_text
+        self.update()
+
+    def _get_status_text(self):
+        if self._installing:
+            return "installing..."
+        if self._latest is None:
+            return "checking..."
+        if self._latest != self._version:
+            return f"v{self._latest} available — click to install"
+        return "up to date"
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QBrush(QColor(0, 0, 0, 140)))
+        painter.drawRoundedRect(QRectF(self.rect()), 6, 6)
+
+        color = QColor("#ffaa00") if (self._latest and self._latest != self._version) else QColor("#6aaa8a")
+        f = QFont("monospace", 9)
+        painter.setFont(f)
+        painter.setPen(color)
+        painter.drawText(QRectF(8, 2, self.width() - 12, 14), Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, f"v{self._version}")
+
+        f2 = QFont("monospace", 8)
+        painter.setFont(f2)
+        status_color = QColor("#ffaa00") if (self._latest and self._latest != self._version) else QColor("#4a8a6a")
+        painter.setPen(status_color)
+        painter.drawText(QRectF(8, 15, self.width() - 12, 14), Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, self._get_status_text())
+
+    def mousePressEvent(self, event):
+        if self._latest and self._latest != self._version and not self._installing:
+            self._install()
+
+    def _check(self):
+        async def _do():
+            try:
+                import httpx
+                r = await httpx.AsyncClient(timeout=5).get(
+                    "https://api.github.com/repos/king/FRIDAY/releases/latest",
+                    headers={"Accept": "application/vnd.github.v3+json"},
+                )
+                if r.status_code == 200:
+                    self._latest = r.json().get("tag_name", "").lstrip("v")
+            except Exception:
+                pass
+            self._update_style()
+        try:
+            loop = asyncio.get_running_loop()
+            asyncio.ensure_future(_do())
+        except RuntimeError:
+            pass
+
+    def _install(self):
+        self._installing = True
+        self._update_style()
+        async def _do():
+            try:
+                proc = await asyncio.create_subprocess_shell(
+                    "git pull origin main",
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+                await proc.communicate()
+            except Exception:
+                pass
+            import os
+            os.execl(sys.executable, sys.executable, *sys.argv)
+        asyncio.ensure_future(_do())
 
 
 class SettingsDialog(QFrame):
