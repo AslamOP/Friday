@@ -1,0 +1,14 @@
+pydantic>=2.0
+pydantic-settings>=2.0
+httpx>=0.25
+aiosqlite>=0.19
+rich>=13.0
+pymupdf>=1.23
+beautifulsoup4>=4.12
+edge-tts>=6.0
+SpeechRecognition>=3.10
+pyttsx3>=2.90
+pyaudio>=0.2
+playwright>=1.40
+pytest>=8.0
+pytest-asyncio>=0.23

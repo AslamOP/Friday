@@ -1,0 +1,15 @@
+[Unit]
+Description=FRIDAY AI Operating System
+After=network.target ollama.service
+
+[Service]
+Type=simple
+WorkingDirectory=%h/Projects/Friday
+Environment=PATH=%h/Projects/Friday/.venv/bin:/usr/bin:/bin
+EnvironmentFile=%h/Projects/Friday/.env
+ExecStart=%h/Projects/Friday/.venv/bin/python -m friday.main
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,20 @@
+# FRIDAY v2.0 Debug Log
+## Date: 2026-07-26
+
+## Compilation Check
+- All 30+ Python files in friday/ compile without errors (py_compile)
+- No syntax errors, no missing imports, no undefined names
+
+## Import Check
+- All 40+ modules import without circular dependency issues
+- No ImportError across core, agents, tools, memory, router, interfaces
+
+## Intent Parser
+- Fixed: Substring matching caused "research" to match "search" keyword
+- Fix: Added re.search with word boundaries (\b) to keyword matching
+- All 8 intent types route correctly to their respective agents
+
+## Open Issues
+1. OmniRoute requires OPENROUTER_API_KEY in .env — gracefully falls back if missing
+2. Browser tool requires `playwright install` to run browser automation
+3. Code formatters (ruff, prettier) may not be installed — gracefully handled

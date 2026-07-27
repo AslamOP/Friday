@@ -1,0 +1,25 @@
+from fastapi import FastAPI
+from app.main import app
+from fastapi.testclient import TestClient
+from unittest.mock import patch
+from app.models.db import User
+
+# db = _patch_engine(app)
+
+def test_create_user():
+    client = TestClient(app)
+    response = client.post(
+        "/users/",
+        json={"name": "Alice", "email" : "alice@example.com"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    user = User.find(data['id'])
+    assert user == data
+
+def test_read_user():
+    response=app.get("/users")
+    assert response.status_code == 200
+    data = response.json()
+    # validation should be done here
+    assert len(data) > 0

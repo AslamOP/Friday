@@ -1,0 +1,249 @@
+import asyncio
+import logging
+import shutil
+from datetime import datetime
+
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
+from rich.markdown import Markdown
+from rich.live import Live
+from rich import box
+from rich.text import Text
+
+from friday.core.orchestrator import get_orchestrator
+from friday.agents.mentor import MentorAgent
+from friday.agents.planner import PlannerAgent
+from friday.agents.software_engineer import SoftwareEngineerAgent
+from friday.agents.research_scientist import ResearchScientistAgent
+from friday.agents.automation_engineer import AutomationEngineerAgent
+from friday.agents.knowledge_manager import KnowledgeManagerAgent
+from friday.agents.academic_tutor import AcademicTutorAgent
+from friday.agents.gaming_assistant import GamingAssistantAgent
+from friday.router.omniroute import OmniRouteClient
+from friday.interfaces.audio import SpeechToText, TextToSpeech
+from friday import __version__
+
+logger = logging.getLogger("friday.cli")
+
+_BANNER = """
+  _____ _____ ___   _   _ _____
+ |  ___|  ___/ _ \\ | \\ | |  __ \\
+ | |__ | |_ | | | ||  \\| | |  | |
+ |  __||  _|| |_| || . ` | |  | |
+ | |___| |   \\___/ | |\\  | |__| |
+ |____/|_|        |_| \\_|_____/
+"""
+
+_HELP = f"""[bold]FRIDAY v{__version__}[/bold]
+  /help         This help          /agents    List agents
+  /status       System state       /save      Force save
+  /plugins      List plugins       /history   Session history
+  /voice        Toggle voice mode  /speak     Read last response
+  /clear        Clear screen       exit       Shutdown"""
+
+
+class FridayREPL:
+    def __init__(self):
+        self.console = Console()
+        self.orchestrator = get_orchestrator()
+        self.router = OmniRouteClient()
+        for a in [
+            MentorAgent(), PlannerAgent(), SoftwareEngineerAgent(),
+            ResearchScientistAgent(), AutomationEngineerAgent(),
+            KnowledgeManagerAgent(), AcademicTutorAgent(), GamingAssistantAgent(),
+        ]:
+            self.orchestrator.register_agent(a)
+        self.history: list[dict] = []
+        self.voice_mode = False
+        self.stt = SpeechToText()
+        self.tts = TextToSpeech()
+        self._last_output = ""
+
+    async def _agents(self):
+        t = Table(show_header=True, box=box.SIMPLE)
+        t.add_column("Agent", style="cyan")
+        t.add_column("Model", style="yellow")
+        for a in self.orchestrator.agent_router._agents:
+            t.add_row(a.name, a.model_preference or "auto")
+        self.console.print(t)
+
+    async def _status(self):
+        kg = self.orchestrator.context_engine._kg
+        e = len(kg._graph) if hasattr(kg, "_graph") else 0
+        r = len(kg._relations) if hasattr(kg, "_relations") else 0
+        g = Table.grid(padding=1)
+        g.add_column(style="cyan")
+        g.add_column(style="white")
+        g.add_row("Version", f"v{__version__}")
+        g.add_row("Agents", str(len(self.orchestrator.agent_router._agents)))
+        g.add_row("KG entities", str(e))
+        g.add_row("KG relations", str(r))
+        g.add_row("Auto-save", "every 60s")
+        g.add_row("History", str(len(self.history)))
+        self.console.print(Panel(g, title="Status", border_style="blue"))
+
+    async def _history_cmd(self):
+        if not self.history:
+            self.console.print("[dim]No history[/dim]")
+            return
+        for i, h in enumerate(self.history[-20:], 1):
+            self.console.print(f"[dim]{i}.[/dim] [cyan]You:[/cyan] {h['input'][:80]}")
+            agent = h.get("agent", "?")
+            model = h.get("model", "")
+            badge = f"[bold green]{agent}[/bold green]"
+            if model:
+                badge += f" [dim]({model})[/dim]"
+            self.console.print(f"    {badge}")
+            self.console.print()
+
+    async def _banner(self):
+        self.console.clear()
+        tw = shutil.get_terminal_size().columns
+        self.console.print(f"[bold cyan]{_BANNER}[/bold cyan]")
+        self.console.print(f"[dim]v{__version__} — {datetime.now().strftime('%a %b %d %H:%M')}[/dim]".center(tw))
+        self.console.print(f"[dim]{len(self.orchestrator.agent_router._agents)} agents | /help[/dim]".center(tw) + "\n")
+
+    async def _stream_response(self, task_type: str, prompt: str, system_prompt: str, label: str) -> tuple[str, str]:
+        full = ""
+        model = ""
+        header = Text(f" {label} ", style="bold green")
+        with Live(Panel(Markdown(""), title=header), refresh_per_second=20, console=self.console) as live:
+            async for chunk in self.router.route_stream(task_type, prompt, system_prompt):
+                token = chunk.get("token", "")
+                if token:
+                    full += token
+                    live.update(Panel(Markdown(full), title=header))
+                m = chunk.get("model", "")
+                if m and m != "none":
+                    model = m
+                    header = Text(f" {label} ({model}) ", style="bold green")
+                    live.update(Panel(Markdown(full), title=header))
+        return full, model
+
+    async def _read_multiline(self) -> str:
+        lines = []
+        self.console.print("[dim](multi-line — press Ctrl+D on empty line to send)[/dim]")
+        while True:
+            try:
+                line = await asyncio.get_event_loop().run_in_executor(None, lambda: input("... "))
+                if not line and lines:
+                    break
+                lines.append(line)
+            except EOFError:
+                break
+        return "\n".join(lines)
+
+    async def _listen_input(self) -> str:
+        if self.voice_mode:
+            self.console.print("[dim]🎤 Listening...[/dim]")
+            text = await self.stt.listen(timeout=8.0, phrase_time=5.0)
+            if text:
+                self.console.print(f"[dim]You: {text}[/dim]")
+            return text.strip()
+        return (await asyncio.get_event_loop().run_in_executor(
+            None, lambda: input("[bold yellow]>>> [/bold yellow]")
+        )).strip()
+
+    async def run(self):
+        await self.orchestrator.initialize()
+        await self._banner()
+        while True:
+            try:
+                raw = await self._listen_input()
+                if not raw:
+                    continue
+
+                if raw.lower() in ("exit", "quit", ":q"):
+                    await self.orchestrator.persistence.save_all()
+                    self.console.print("[dim]Saved. Goodbye.[/dim]")
+                    break
+
+                if raw.lower() in ("clear", "cls"):
+                    await self._banner()
+                    continue
+
+                if raw.lower() == "/help":
+                    self.console.print(_HELP)
+                    continue
+
+                if raw.lower() == "/agents":
+                    await self._agents()
+                    continue
+
+                if raw.lower() == "/status":
+                    await self._status()
+                    continue
+
+                if raw.lower() == "/save":
+                    await self.orchestrator.persistence.save_all()
+                    self.console.print("[dim]Saved.[/dim]")
+                    continue
+
+                if raw.lower() == "/history":
+                    await self._history_cmd()
+                    continue
+
+                if raw.lower() == "/voice":
+                    self.voice_mode = not self.voice_mode
+                    status = "ON" if self.voice_mode else "OFF"
+                    self.console.print(f"[dim]Voice mode {status}[/dim]")
+                    if self.voice_mode and not self.tts.available:
+                        self.console.print("[yellow]Warning: no TTS engine available[/yellow]")
+                    continue
+
+                if raw.lower() == "/speak":
+                    if self._last_output:
+                        await self.tts.speak(self._last_output)
+                    else:
+                        self.console.print("[dim]Nothing to speak[/dim]")
+                    continue
+
+                if raw.lower() == "/plugins":
+                    pl = self.orchestrator.plugin_manager.list_plugins()
+                    if pl:
+                        t = Table(show_header=True, box=box.SIMPLE)
+                        t.add_column("Plugin", style="cyan")
+                        t.add_column("Version", style="yellow")
+                        t.add_column("Description")
+                        for p in pl:
+                            t.add_row(p["name"], p["version"], p["description"])
+                        self.console.print(t)
+                    else:
+                        self.console.print("[dim]No plugins loaded[/dim]")
+                    continue
+
+                # Multi-line input detection (code blocks)
+                if raw.startswith("```") or raw.startswith("'''") or raw.endswith(":") or raw.endswith("{"):
+                    rest = await self._read_multiline()
+                    raw = raw + "\n" + rest
+
+                # Route via orchestrator for intent/context/entity extraction
+                intent = await self.orchestrator.intent_parser.parse(raw)
+                agent = await self.orchestrator.agent_router.route(intent)
+
+                self.console.print(f"[dim]{agent.name} → {self.router.model_registry.get_zen_model(intent.type) if self.router.config.opencode_zen_api_key else 'ollama'}[/dim]")
+
+                # Stream the response with live markdown rendering
+                output, model = await self._stream_response(intent.type, raw, agent.name, agent.name)
+
+                # Post-process for memory/entities (no duplicate LLM call)
+                await self.orchestrator.remember_response(raw, output, agent.name, intent.type)
+                self._last_output = output
+                self.history.append({
+                    "input": raw,
+                    "output": output,
+                    "agent": agent.name,
+                    "model": model,
+                })
+
+                # Speak response in voice mode
+                if self.voice_mode and self.tts.available:
+                    await self.tts.speak(output)
+
+            except (EOFError, KeyboardInterrupt):
+                await self.orchestrator.persistence.save_all()
+                self.console.print("\n[dim]Saved. Goodbye.[/dim]")
+                break
+            except Exception as e:
+                self.console.print(f"[red]{e}[/red]")

@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "friday"
+version = "2.7.0"
+description = "FRIDAY AI OS — Autonomous AI assistant for Arch Linux"
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.0",
+    "pydantic-settings>=2.0",
+    "httpx>=0.25",
+    "aiosqlite>=0.19",
+    "rich>=13.0",
+    "pymupdf>=1.23",
+    "beautifulsoup4>=4.12",
+    "edge-tts>=6.0",
+    "SpeechRecognition>=3.10",
+    "pyttsx3>=2.90",
+    "pyaudio>=0.2",
+    "playwright>=1.40",
+]
+
+[project.scripts]
+friday = "friday.main:main"
+
+[tool.setuptools.packages.find]
+include = ["friday*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
