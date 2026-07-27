@@ -13,12 +13,13 @@ class FallbackHandler:
     def __init__(self):
         self.cost_tracker = CostTracker()
 
-    async def _call(self, model: str, prompt: str, system_prompt: str, api_key: str) -> dict[str, Any] | None:
+    async def _call(self, model: str, prompt: str, system_prompt: str, api_key: str, base_url: str = "") -> dict[str, Any] | None:
         try:
             import httpx
+            url = (base_url.rstrip("/") + "/chat/completions") if base_url else _OR_URL
 
             r = await httpx.AsyncClient(timeout=15.0).post(
-                _OR_URL,
+                url,
                 headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
                 json={
                     "model": model,
@@ -40,28 +41,29 @@ class FallbackHandler:
             self.cost_tracker.log_usage(model=model, tokens_in=0, tokens_out=0, success=False)
             return None
 
-    async def execute_with_fallback(self, models: list[str], prompt: str, system_prompt: str = "", api_key: str = "") -> dict[str, Any]:
+    async def execute_with_fallback(self, models: list[str], prompt: str, system_prompt: str = "", api_key: str = "", base_url: str = "") -> dict[str, Any]:
         if not api_key:
             return {"content": "No API key configured.", "model": "none", "usage": {}}
         for m in models:
-            r = await self._call(m, prompt, system_prompt, api_key)
+            r = await self._call(m, prompt, system_prompt, api_key, base_url)
             if r is not None:
                 return r
             await asyncio.sleep(0.5)
         return {"content": "All models failed.", "model": "none", "usage": {}}
 
-    async def execute_stream(self, models: list[str], prompt: str, system_prompt: str = "", api_key: str = "") -> AsyncGenerator[dict[str, Any], None]:
+    async def execute_stream(self, models: list[str], prompt: str, system_prompt: str = "", api_key: str = "", base_url: str = "") -> AsyncGenerator[dict[str, Any], None]:
         if not api_key:
             yield {"token": "", "model": "none", "done": True}
             return
         for m in models:
             try:
                 import httpx
+                url = (base_url.rstrip("/") + "/chat/completions") if base_url else _OR_URL
 
                 async with httpx.AsyncClient(timeout=30.0) as client:
                     async with client.stream(
                         "POST",
-                        _OR_URL,
+                        url,
                         headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
                         json={
                             "model": m,

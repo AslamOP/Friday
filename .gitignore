@@ -5,6 +5,7 @@ __pycache__/
 venv/
 data/*.db
 data/*.json
+data/providers.json
 *.egg-info/
 dist/
 build/

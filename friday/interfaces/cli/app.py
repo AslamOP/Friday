@@ -39,8 +39,9 @@ _HELP = f"""[bold]FRIDAY v{__version__}[/bold]
   /help         This help          /agents    List agents
   /status       System state       /save      Force save
   /plugins      List plugins       /history   Session history
-  /voice        Toggle voice mode  /speak     Read last response
-  /clear        Clear screen       exit       Shutdown"""
+  /providers    Manage LLM providers  /voice   Toggle voice mode
+  /speak        Read last response  /clear    Clear screen
+  exit          Shutdown"""
 
 
 class FridayREPL:
@@ -96,6 +97,22 @@ class FridayREPL:
                 badge += f" [dim]({model})[/dim]"
             self.console.print(f"    {badge}")
             self.console.print()
+
+    async def _providers(self):
+        t = Table(show_header=True, box=box.SIMPLE)
+        t.add_column("Provider", style="cyan")
+        t.add_column("Type", style="yellow")
+        t.add_column("Status", style="magenta")
+        t.add_column("Models")
+        for p in self.router.registry.list_providers():
+            status = p.status
+            key_set = "✓" if p.api_key else "✗"
+            label = f"{status} key:{key_set}" if p.type == "cloud" else status
+            t.add_row(p.name, p.type, label, ", ".join(p.models[:3]))
+        self.console.print(Panel(t, title="LLM Providers"))
+        self.console.print("[dim]/provider add <name> <local|cloud> [endpoint][/dim]")
+        self.console.print("[dim]/provider key <name> <api_key>[/dim]")
+        self.console.print("[dim]/provider remove <name>[/dim]")
 
     async def _banner(self):
         self.console.clear()
@@ -213,6 +230,45 @@ class FridayREPL:
                         self.console.print("[dim]No plugins loaded[/dim]")
                     continue
 
+                if raw.lower() == "/providers":
+                    await self._providers()
+                    continue
+
+                if raw.lower().startswith("/provider add"):
+                    parts = raw.split()
+                    if len(parts) >= 3:
+                        name = parts[2]
+                        ptype = parts[3] if len(parts) > 3 else "cloud"
+                        endpoint = parts[4] if len(parts) > 4 else ""
+                        self.router.registry.add_provider(name, ptype, endpoint=endpoint)
+                        if endpoint:
+                            status = await self.router.registry.check_status(name)
+                            self.console.print(f"[green]Added {name} ({ptype}) — status: {status}[/green]")
+                        else:
+                            self.console.print(f"[green]Added {name} ({ptype}). Set its API key: /provider key {name} <key>[/green]")
+                    else:
+                        self.console.print("[yellow]Usage: /provider add <name> <local|cloud> [endpoint][/yellow]")
+                    continue
+
+                if raw.lower().startswith("/provider remove"):
+                    parts = raw.split()
+                    if len(parts) >= 3 and self.router.registry.remove_provider(parts[2]):
+                        self.console.print(f"[green]Removed {parts[2]}[/green]")
+                    else:
+                        self.console.print("[yellow]Cannot remove or not found[/yellow]")
+                    continue
+
+                if raw.lower().startswith("/provider key"):
+                    parts = raw.split(maxsplit=2)
+                    if len(parts) >= 3:
+                        name, key = parts[1], parts[2]
+                        self.router.registry.set_key(name, key)
+                        status = await self.router.registry.check_status(name)
+                        self.console.print(f"[green]{name} key set — status: {status}[/green]")
+                    else:
+                        self.console.print("[yellow]Usage: /provider key <name> <api_key>[/yellow]")
+                    continue
+
                 # Multi-line input detection (code blocks)
                 if raw.startswith("```") or raw.startswith("'''") or raw.endswith(":") or raw.endswith("{"):
                     rest = await self._read_multiline()
@@ -222,7 +278,9 @@ class FridayREPL:
                 intent = await self.orchestrator.intent_parser.parse(raw)
                 agent = await self.orchestrator.agent_router.route(intent)
 
-                self.console.print(f"[dim]{agent.name} → {self.router.model_registry.get_zen_model(intent.type) if self.router.config.opencode_zen_api_key else 'ollama'}[/dim]")
+                providers = [p.name for p in self.router.registry.get_online_providers()]
+                route_info = providers[0] if providers else "offline"
+                self.console.print(f"[dim]{agent.name} → {route_info}[/dim]")
 
                 # Stream the response with live markdown rendering
                 output, model = await self._stream_response(intent.type, raw, agent.name, agent.name)
