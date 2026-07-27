@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import httpx
 logger = logging.getLogger("friday.embedding_service")
@@ -14,7 +15,16 @@ class EmbeddingService:
             r = await client.post(f"{self.base_url}/api/embeddings", json={"model": self.model, "prompt": text}); r.raise_for_status()
             return r.json().get("embedding", [])
         except Exception as e: logger.warning("Embed failed: %s", e); return []
-    async def embed_batch(self, texts: list[str]) -> list[list[float]]: return [await self.embed(t) for t in texts]
+    async def embed_batch(self, texts: list[str]) -> list[list[float]]:
+        results = await asyncio.gather(*[self.embed(t) for t in texts], return_exceptions=True)
+        out = []
+        for r in results:
+            if isinstance(r, Exception):
+                logger.warning("Batch embed failed: %s", r)
+                out.append([])
+            else:
+                out.append(r)
+        return out
     async def is_available(self) -> bool:
         try:
             r = await (await self._get_client()).get(f"{self.base_url}/api/tags"); return r.status_code == 200

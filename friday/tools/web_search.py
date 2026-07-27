@@ -20,12 +20,19 @@ class WebSearchTool:
         results = []
         try:
             soup = BeautifulSoup(html, "html.parser")
-            for a in soup.select("a.result__a"):
+            for a in soup.select("a.result__a, a.result-link, h2 a, .result__title a"):
                 if len(results) >= limit: break
                 t, u = _strip(a.get_text()), a.get("href", "")
-                if t and u: results.append(SearchResult(title=t, url=u))
-            for i, s in enumerate(soup.select(".result__snippet")):
-                if i < len(results): results[i].snippet = _strip(s.get_text())
+                if t and u:
+                    results.append(SearchResult(title=t, url=u))
+            snippet_selectors = [".result__snippet", ".result-snippet", ".snippet", ".result__snippet span"]
+            for sel in snippet_selectors:
+                snips = soup.select(sel)
+                if snips:
+                    for i, s in enumerate(snips):
+                        if i < len(results):
+                            results[i].snippet = _strip(s.get_text())
+                    break
         except Exception as e: logger.warning("Parse: %s", e)
         return SearchResponse(results=results)
     async def scrape(self, url: str, max_chars: int = 3000) -> str:

@@ -47,11 +47,12 @@ class SpeechToText:
     async def listen_background(self, callback: Callable[[str], None], interval: float = 1.0):
         r = self._get_recognizer()
         import speech_recognition as sr
+        self._bg_running = True
 
         def _bg():
             with sr.Microphone() as source:
                 r.adjust_for_ambient_noise(source, duration=0.3)
-                while True:
+                while self._bg_running:
                     try:
                         audio = r.listen(source, timeout=1, phrase_time_limit=5)
                         text = r.recognize_google(audio)
@@ -63,7 +64,15 @@ class SpeechToText:
                         logger.debug("BG listen: %s", e)
 
         loop = asyncio.get_running_loop()
-        await loop.run_in_executor(None, _bg)
+        self._bg_task = loop.run_in_executor(None, _bg)
+
+    async def stop_background(self):
+        self._bg_running = False
+        if hasattr(self, '_bg_task') and self._bg_task:
+            try:
+                await asyncio.wait_for(self._bg_task, timeout=3.0)
+            except Exception:
+                pass
 
     async def _transcribe(self, recognizer, audio) -> str:
         loop = asyncio.get_running_loop()
@@ -78,11 +87,5 @@ class SpeechToText:
         if result:
             return result
 
-        def _sphinx():
-            try:
-                return recognizer.recognize_sphinx(audio)
-            except Exception:
-                return ""
-
-        logger.info("Google failed, trying Sphinx...")
-        return await loop.run_in_executor(None, _sphinx)
+        logger.info("Google STT failed, no fallback available")
+        return ""

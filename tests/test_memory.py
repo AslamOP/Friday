@@ -203,8 +203,8 @@ class TestConversationStore:
 
 @pytest.mark.asyncio
 class TestSemanticStore:
-    async def test_add_and_search(self):
-        ss = SemanticStore()
+    async def test_add_and_search(self, tmp_path):
+        ss = SemanticStore(persist_dir=str(tmp_path / "chroma"))
         with patch.object(ss, "_emb") as mock_emb:
             mock_emb.embed = AsyncMock(side_effect=lambda t: {
                 "hello world": [1.0, 0.0],
@@ -217,8 +217,8 @@ class TestSemanticStore:
             assert len(results) >= 1
             assert results[0]["id"] == "1"
 
-    async def test_empty_store_returns_empty(self):
-        ss = SemanticStore()
+    async def test_empty_store_returns_empty(self, tmp_path):
+        ss = SemanticStore(persist_dir=str(tmp_path / "chroma"))
         assert await ss.count() == 0
         results = await ss.search("anything")
         assert results == []

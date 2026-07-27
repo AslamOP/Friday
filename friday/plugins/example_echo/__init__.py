@@ -24,5 +24,13 @@ class ExampleEchoPlugin(Plugin):
         orchestrator.register_intent("echo", ["echo", "repeat", "say again"])
 
     async def on_unload(self, orchestrator):
-        orchestrator.agent_router.unregister_agent("echo")
-        orchestrator.unregister_intent("echo")
+        try:
+            if hasattr(orchestrator, 'agent_router') and orchestrator.agent_router:
+                orchestrator.agent_router.unregister_agent("echo")
+        except Exception as e:
+            logger = __import__("logging").getLogger("friday.echo_plugin")
+            logger.warning("Error unloading echo agent: %s", e)
+        try:
+            orchestrator.unregister_intent("echo")
+        except Exception:
+            pass

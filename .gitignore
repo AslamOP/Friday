@@ -13,3 +13,4 @@ build/
 .env
 .DS_Store
 *.mp3
+data/chroma/

@@ -12,12 +12,14 @@ logger = logging.getLogger("friday.plugin_manager")
 
 def _default_plugin_dir() -> Path:
     cfg = get_config()
-    raw = (cfg.database_url or "").replace("sqlite+aiosqlite:///", "").replace("sqlite:///", "").lstrip("./")
-    if raw:
-        base = Path(raw).parent
-    else:
-        base = Path("data")
-    return base.parent / "plugins" if base != Path("data") else Path("friday/plugins")
+    p = Path("friday/plugins")
+    if p.is_dir():
+        return p.resolve()
+    alt = Path(__file__).parent.parent / "plugins"
+    if alt.is_dir():
+        return alt.resolve()
+    p.mkdir(parents=True, exist_ok=True)
+    return p.resolve()
 
 
 class PluginManager:

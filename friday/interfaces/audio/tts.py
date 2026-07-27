@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 
 logger = logging.getLogger("friday.tts")
 
@@ -26,15 +27,27 @@ class TextToSpeech:
         import edge_tts
 
         voice = self._voice or "en-US-AriaNeural"
-        communicate = edge_tts.Communicate(text, voice)
-        await communicate.save("/tmp/friday_tts.mp3")
+        tmp_path = "/tmp/friday_tts.mp3"
+        try:
+            communicate = edge_tts.Communicate(text, voice)
+            await communicate.save(tmp_path)
 
-        import subprocess
-        subprocess.run(
-            ["ffplay", "-nodisp", "-autoexit", "/tmp/friday_tts.mp3"],
-            capture_output=True,
-            timeout=60,
-        )
+            import subprocess
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(
+                None,
+                lambda: subprocess.run(
+                    ["ffplay", "-nodisp", "-autoexit", tmp_path],
+                    capture_output=True,
+                    timeout=60,
+                ),
+            )
+        finally:
+            if os.path.exists(tmp_path):
+                try:
+                    os.remove(tmp_path)
+                except Exception:
+                    pass
 
     def _pyttsx3_speak(self, text: str) -> None:
         import pyttsx3

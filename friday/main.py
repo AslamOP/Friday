@@ -14,20 +14,26 @@ async def daemon():
     cfg = get_config()
     logger.info("FRIDAY v%s daemon starting...", __version__)
     from friday.core.orchestrator import get_orchestrator
-    from friday.agents.mentor import MentorAgent
-    from friday.agents.planner import PlannerAgent
-    from friday.agents.software_engineer import SoftwareEngineerAgent
-    from friday.agents.research_scientist import ResearchScientistAgent
-    from friday.agents.automation_engineer import AutomationEngineerAgent
-    from friday.agents.knowledge_manager import KnowledgeManagerAgent
-    from friday.agents.study import StudyAgent
-    from friday.agents.gaming_assistant import GamingAssistantAgent
+    agent_classes = []
+    for mod_path, cls_name in [
+        ("friday.agents.mentor", "MentorAgent"),
+        ("friday.agents.planner", "PlannerAgent"),
+        ("friday.agents.software_engineer", "SoftwareEngineerAgent"),
+        ("friday.agents.research_scientist", "ResearchScientistAgent"),
+        ("friday.agents.automation_engineer", "AutomationEngineerAgent"),
+        ("friday.agents.knowledge_manager", "KnowledgeManagerAgent"),
+        ("friday.agents.study", "StudyAgent"),
+        ("friday.agents.gaming_assistant", "GamingAssistantAgent"),
+    ]:
+        try:
+            mod = __import__(mod_path, fromlist=[cls_name])
+            agent_classes.append(getattr(mod, cls_name)())
+        except Exception as e:
+            logger.warning("Agent %s unavailable: %s", cls_name, e)
 
     o = get_orchestrator()
-    for ac in [MentorAgent, PlannerAgent, SoftwareEngineerAgent,
-               ResearchScientistAgent, AutomationEngineerAgent,
-               KnowledgeManagerAgent, StudyAgent, GamingAssistantAgent]:
-        o.register_agent(ac())
+    for ac in agent_classes:
+        o.register_agent(ac)
     await o.initialize()
     logger.info("FRIDAY v%s daemon ready", __version__)
 

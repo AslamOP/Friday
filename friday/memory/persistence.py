@@ -11,14 +11,34 @@ class PersistenceManager:
         self._kg_path = d / "kg.json"; self._profile_path = d / "profile.json"; self._projects_path = d / "projects.json"
         self._task: asyncio.Task | None = None
     async def load_all(self):
-        KnowledgeGraph().load(self._kg_path); UserProfile().load(self._profile_path); ProjectMemory().load(self._projects_path)
-        logger.info("Memory loaded")
+        errors = []
+        for name, path, obj in [("kg", self._kg_path, KnowledgeGraph()), ("profile", self._profile_path, UserProfile()), ("projects", self._projects_path, ProjectMemory())]:
+            try:
+                obj.load(path)
+            except Exception as e:
+                errors.append(f"{name}: {e}")
+                logger.warning("Failed to load %s from %s: %s", name, path, e)
+        if errors:
+            logger.warning("Memory loaded with %d error(s): %s", len(errors), "; ".join(errors))
+        else:
+            logger.info("Memory loaded")
     async def save_all(self):
-        KnowledgeGraph().save(self._kg_path); UserProfile().save(self._profile_path); ProjectMemory().save(self._projects_path)
+        for name, path, obj in [("kg", self._kg_path, KnowledgeGraph()), ("profile", self._profile_path, UserProfile()), ("projects", self._projects_path, ProjectMemory())]:
+            try:
+                obj.save(path)
+            except Exception as e:
+                logger.warning("Failed to save %s to %s: %s", name, path, e)
     async def start_auto_save(self):
         await self.load_all()
         async def loop():
-            while True: await asyncio.sleep(_INTERVAL); await self.save_all()
+            while True:
+                try:
+                    await asyncio.sleep(_INTERVAL)
+                    await self.save_all()
+                except asyncio.CancelledError:
+                    break
+                except Exception as e:
+                    logger.error("Auto-save error: %s", e)
         self._task = asyncio.create_task(loop()); logger.info("Auto-save every %ds", _INTERVAL)
     async def stop(self):
         if self._task: self._task.cancel(); self._task = None

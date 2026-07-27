@@ -1,12 +1,32 @@
-import logging, uuid
+import json, logging, uuid
+from pathlib import Path
 from friday.memory.embedding_service import EmbeddingService
 logger = logging.getLogger("friday.semantic_store")
 class SemanticStore:
     def __init__(self, persist_dir: str = "data/chroma"):
-        self._persist_dir = persist_dir; self._emb = EmbeddingService(); self._entries: dict[str, dict] = {}
+        self._persist_dir = Path(persist_dir); self._persist_dir.mkdir(parents=True, exist_ok=True)
+        self._emb = EmbeddingService(); self._entries: dict[str, dict] = {}
+        self._load()
+    def _path(self): return self._persist_dir / "entries.json"
+    def _load(self):
+        p = self._path()
+        if p.exists():
+            try:
+                with open(p) as f: raw = json.load(f)
+                self._entries = {e["id"]: e for e in raw}
+                logger.info("Loaded %d entries from %s", len(self._entries), p)
+            except Exception as e:
+                logger.warning("Failed to load semantic store: %s", e)
+    def _save(self):
+        p = self._path()
+        try:
+            with open(p, "w") as f: json.dump([e for e in self._entries.values()], f, indent=2)
+        except Exception as e:
+            logger.warning("Failed to save semantic store: %s", e)
     async def add_entry(self, eid: str, text: str, metadata: dict | None = None):
         emb = await self._emb.embed(text)
         self._entries[eid] = {"id": eid, "text": text, "embedding": emb, "metadata": metadata or {}}
+        self._save()
     async def search(self, query: str, top_k: int = 5) -> list[dict]:
         qe = await self._emb.embed(query)
         if not qe or not self._entries: return []
