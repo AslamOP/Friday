@@ -193,27 +193,16 @@ class ProviderRegistry:
                     return
         yield {"model": "none", "content": "", "done": True}
 
+    def _api_url(self, provider: ProviderConfig) -> str:
+        base = provider.endpoint.rstrip("/")
+        if provider.name == "ollama":
+            return base + "/v1/chat/completions"
+        return base + "/chat/completions"
+
     async def _call(self, provider: ProviderConfig, task_type: str,
                     prompt: str, system_prompt: str) -> dict[str, Any]:
         try:
-            if provider.name == "zen":
-                from friday.router.zen_client import ZenClient
-                api_url = provider.endpoint.rstrip("/") + "/chat/completions"
-                client = ZenClient(provider.api_key, base_url=api_url)
-                model = provider.models[0] if provider.models else "deepseek-v4-flash-free"
-                return await client.call_model(model, prompt, system_prompt)
-            elif provider.name == "openrouter":
-                from friday.router.fallback import FallbackHandler
-                handler = FallbackHandler()
-                return await handler.execute_with_fallback(
-                    provider.models, prompt, system_prompt, provider.api_key, base_url=provider.endpoint
-                )
-            elif provider.name == "ollama":
-                from friday.router.ollama_client import OllamaClient
-                client = OllamaClient(base_url=provider.endpoint)
-                return await client.generate(task_type, prompt, system_prompt)
-            else:
-                return await self._call_openai_compat(provider, prompt, system_prompt)
+            return await self._call_openai_compat(provider, prompt, system_prompt)
         except Exception as e:
             logger.warning("Provider %s failed: %s", provider.name, e)
             return {"model": "none", "content": "", "role": "assistant"}
@@ -221,36 +210,10 @@ class ProviderRegistry:
     async def _call_stream(self, provider: ProviderConfig, task_type: str,
                            prompt: str, system_prompt: str):
         try:
-            if provider.name == "zen":
-                from friday.router.zen_client import ZenClient
-                api_url = provider.endpoint.rstrip("/") + "/chat/completions"
-                client = ZenClient(provider.api_key, base_url=api_url)
-                model = provider.models[0] if provider.models else "deepseek-v4-flash-free"
-                async for chunk in client.call_model_stream(model, prompt, system_prompt):
-                    yield chunk
-                    if chunk.get("done"):
-                        return
-            elif provider.name == "openrouter":
-                from friday.router.fallback import FallbackHandler
-                handler = FallbackHandler()
-                async for chunk in handler.execute_stream(
-                    provider.models, prompt, system_prompt, provider.api_key, base_url=provider.endpoint
-                ):
-                    yield chunk
-                    if chunk.get("done"):
-                        return
-            elif provider.name == "ollama":
-                from friday.router.ollama_client import OllamaClient
-                client = OllamaClient(base_url=provider.endpoint)
-                async for chunk in client.generate_stream(task_type, prompt, system_prompt):
-                    yield chunk
-                    if chunk.get("done"):
-                        return
-            else:
-                async for chunk in self._call_openai_compat_stream(provider, prompt, system_prompt):
-                    yield chunk
-                    if chunk.get("done"):
-                        return
+            async for chunk in self._call_openai_compat_stream(provider, prompt, system_prompt):
+                yield chunk
+                if chunk.get("done"):
+                    return
         except Exception as e:
             logger.warning("Stream %s failed: %s", provider.name, e)
             yield {"model": "none", "content": "", "done": True}
@@ -263,15 +226,12 @@ class ProviderRegistry:
             messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": prompt})
         model = provider.models[0] if provider.models else "gpt-3.5-turbo"
+        url = self._api_url(provider)
         headers = {"Content-Type": "application/json"}
         if provider.api_key:
             headers["Authorization"] = f"Bearer {provider.api_key}"
         async with httpx.AsyncClient(timeout=30) as c:
-            r = await c.post(
-                f"{provider.endpoint}/chat/completions",
-                json={"model": model, "messages": messages},
-                headers=headers,
-            )
+            r = await c.post(url, json={"model": model, "messages": messages}, headers=headers)
             if r.status_code == 200:
                 data = r.json()
                 content = data["choices"][0]["message"]["content"]
@@ -286,13 +246,13 @@ class ProviderRegistry:
             messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": prompt})
         model = provider.models[0] if provider.models else "gpt-3.5-turbo"
+        url = self._api_url(provider)
         headers = {"Content-Type": "application/json"}
         if provider.api_key:
             headers["Authorization"] = f"Bearer {provider.api_key}"
         async with httpx.AsyncClient(timeout=30) as c:
             async with c.stream(
-                "POST",
-                f"{provider.endpoint}/chat/completions",
+                "POST", url,
                 json={"model": model, "messages": messages, "stream": True},
                 headers=headers,
             ) as r:
