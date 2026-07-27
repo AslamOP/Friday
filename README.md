@@ -11,7 +11,7 @@
 ## Quick Install
 
 ```bash
-sudo bash <(curl -s https://raw.githubusercontent.com/AslamOP/Friday/master/install/setup.sh)
+ sudo bash <(curl -s https://raw.githubusercontent.com/anomalyco/friday/main/friday-installer.sh)
 ```
 
 On next login, FRIDAY asks for your permission. Say yes and it starts automatically after every login. Type `friday` anytime for the REPL.

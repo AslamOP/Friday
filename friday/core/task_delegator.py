@@ -5,7 +5,7 @@ from friday.core.intent_parser import Intent, IntentParser
 from friday.router.provider_registry import ProviderRegistry
 logger = logging.getLogger("friday.task_delegator")
 
-_PROMPT = "Break this into subtasks for specialist agents. Available agents: software_engineer (code), research_scientist (research), planner (planning), academic_tutor (study), mentor (challenge), knowledge_manager (knowledge), automation_engineer (automate), gaming_assistant (gaming). Return JSON array of objects each with keys 'agent' and 'input'. Single item if only one needed. Empty array if none.\nRequest: {input}"
+_PROMPT = "Break this into subtasks for specialist agents. Available agents: software_engineer (code), research_scientist (research), planner (planning), study (study), mentor (challenge), knowledge_manager (knowledge), automation_engineer (automate), gaming_assistant (gaming). Return JSON array of objects each with keys 'agent' and 'input'. Single item if only one needed. Empty array if none.\nRequest: {input}"
 
 class TaskDelegator:
     def __init__(self, router: AgentRouter):

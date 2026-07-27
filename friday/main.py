@@ -20,13 +20,13 @@ async def daemon():
     from friday.agents.research_scientist import ResearchScientistAgent
     from friday.agents.automation_engineer import AutomationEngineerAgent
     from friday.agents.knowledge_manager import KnowledgeManagerAgent
-    from friday.agents.academic_tutor import AcademicTutorAgent
+    from friday.agents.study import StudyAgent
     from friday.agents.gaming_assistant import GamingAssistantAgent
 
     o = get_orchestrator()
     for ac in [MentorAgent, PlannerAgent, SoftwareEngineerAgent,
                ResearchScientistAgent, AutomationEngineerAgent,
-               KnowledgeManagerAgent, AcademicTutorAgent, GamingAssistantAgent]:
+               KnowledgeManagerAgent, StudyAgent, GamingAssistantAgent]:
         o.register_agent(ac())
     await o.initialize()
     logger.info("FRIDAY v%s daemon ready", __version__)
@@ -58,8 +58,16 @@ async def repl():
     await repl_app.run()
 
 
+def gui():
+    logger.info("FRIDAY v%s desktop UI starting...", __version__)
+    from friday.interfaces.desktop.app import run_gui
+    run_gui()
+
+
 async def main():
-    if "--daemon" in sys.argv or "-d" in sys.argv:
+    if "--gui" in sys.argv:
+        gui()
+    elif "--daemon" in sys.argv or "-d" in sys.argv:
         await daemon()
     elif "--tray" in sys.argv:
         await tray()
