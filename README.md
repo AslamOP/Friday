@@ -1,10 +1,28 @@
-# FRIDAY v2.0
+# FRIDAY v2.7.0
 
 > **A Personal AI Operating System.**
 >
 > Not a chatbot. Not a frontend. An intelligent system that reasons, plans, remembers, chooses tools, and acts on behalf of the user.
 > 
 > Inspired by JARVIS. Built for real work.
+
+---
+
+## Quick Install
+
+```bash
+bash <(curl -s https://raw.githubusercontent.com/AslamOP/Friday/master/install/setup.sh)
+```
+
+Or clone and install manually:
+
+```bash
+git clone https://github.com/AslamOP/Friday.git /opt/friday
+cd /opt/friday
+python3 -m venv .venv
+.venv/bin/pip install -e .
+.venv/bin/python friday/main.py
+```
 
 ---
 

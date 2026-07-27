@@ -1,8 +1,25 @@
 #!/usr/bin/env bash
 # FRIDAY post-login welcome — placed in /etc/profile.d/ by setup.sh
-FRIDAY_DIR="/home/king/Projects/Friday"
+
+# Find FRIDAY install — check common locations
+FRIDAY_DIR=""
+for d in /opt/friday "$HOME/Projects/Friday" "$HOME/friday"; do
+    if [[ -f "$d/friday/main.py" ]]; then
+        FRIDAY_DIR="$d"
+        break
+    fi
+done
+
+if [[ -z "$FRIDAY_DIR" ]]; then
+    return 0
+fi
+
 VENV_PYTHON="$FRIDAY_DIR/.venv/bin/python"
 FRIDAY_MAIN="$FRIDAY_DIR/friday/main.py"
+
+if [[ ! -f "$VENV_PYTHON" ]] || [[ ! -f "$FRIDAY_MAIN" ]]; then
+    return 0
+fi
 
 # Show welcome message (once per session)
 if [[ -z ${FRIDAY_WELCOME_SHOWN:-} ]]; then
