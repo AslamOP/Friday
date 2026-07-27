@@ -61,10 +61,20 @@ async def repl():
 async def main():
     if "--daemon" in sys.argv or "-d" in sys.argv:
         await daemon()
+    elif "--tray" in sys.argv:
+        await tray()
     elif "--welcome" in sys.argv:
         await welcome()
     else:
         await repl()
+
+
+async def tray():
+    logger.info("FRIDAY v%s desktop tray starting...", __version__)
+    from friday.interfaces.desktop.tray import FridayTray
+    ft = FridayTray()
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(None, ft.run)
 
 
 async def welcome():

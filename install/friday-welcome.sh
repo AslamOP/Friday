@@ -43,12 +43,18 @@ if [[ ! -f "$PERMIT_FILE" ]] && [[ -z ${FRIDAY_ASKED_PERMISSION:-} ]]; then
 fi
 
 # Subsequent logins — auto-start if permitted
-if [[ "$(cat "$PERMIT_FILE" 2>/dev/null)" == "yes" ]] && [[ -z ${FRIDAY_DAEMON_STARTED:-} ]]; then
-    export FRIDAY_DAEMON_STARTED=1
-    # Check if already running
+if [[ "$(cat "$PERMIT_FILE" 2>/dev/null)" == "yes" ]] && [[ -z ${FRIDAY_STARTED:-} ]]; then
+    export FRIDAY_STARTED=1
     if ! pgrep -f "friday/main.py --daemon" > /dev/null 2>&1; then
         "$VENV_PYTHON" "$FRIDAY_MAIN" --daemon &
         disown
+    fi
+    # Desktop tray (if display server is running)
+    if [[ -n "${DISPLAY:-}" ]] || [[ -n "${WAYLAND_DISPLAY:-}" ]]; then
+        if ! pgrep -f "friday/main.py --tray" > /dev/null 2>&1; then
+            "$VENV_PYTHON" "$FRIDAY_MAIN" --tray &
+            disown
+        fi
     fi
 fi
 
