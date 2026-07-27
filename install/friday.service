@@ -1,5 +1,5 @@
 [Unit]
-Description=FRIDAY AI OS v2.7 Background Daemon
+Description=FRIDAY AI OS Background Daemon
 Documentation=https://github.com/anomalyco/opencode
 After=network-online.target ollama.service
 Wants=network-online.target ollama.service

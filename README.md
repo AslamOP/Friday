@@ -11,17 +11,18 @@
 ## Quick Install
 
 ```bash
-bash <(curl -s https://raw.githubusercontent.com/AslamOP/Friday/master/install/setup.sh)
+sudo bash <(curl -s https://raw.githubusercontent.com/AslamOP/Friday/master/install/setup.sh)
 ```
+
+On next login, FRIDAY asks for your permission. Say yes and it starts automatically after every login. Type `friday` anytime for the REPL.
 
 Or clone and install manually:
 
 ```bash
-git clone https://github.com/AslamOP/Friday.git /opt/friday
-cd /opt/friday
-python3 -m venv .venv
-.venv/bin/pip install -e .
-.venv/bin/python friday/main.py
+sudo git clone https://github.com/AslamOP/Friday.git /opt/friday
+sudo /opt/friday/.venv/bin/python -m venv /opt/friday/.venv
+sudo /opt/friday/.venv/bin/pip install -e /opt/friday
+sudo cp /opt/friday/install/friday-welcome.sh /etc/profile.d/friday.sh
 ```
 
 ---
