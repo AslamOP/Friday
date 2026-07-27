@@ -9,6 +9,7 @@ from PyQt6.QtWidgets import (
     QApplication,
     QHBoxLayout,
     QMainWindow,
+    QSizeGrip,
     QStackedWidget,
     QVBoxLayout,
     QWidget,
@@ -45,6 +46,17 @@ class FridayWindow(QMainWindow):
         self._voice_task = None
 
         self._setup_ui()
+        self._resize_grip = QSizeGrip(self)
+        self._resize_grip.setStyleSheet("""
+            QSizeGrip {
+                background: rgba(0,200,255,0.08);
+                border: 1px solid rgba(0,200,255,0.12);
+                border-radius: 3px;
+                width: 10px; height: 10px;
+            }
+            QSizeGrip:hover { background: rgba(0,200,255,0.2); }
+        """)
+
         self._start_monitor()
 
         self.resize(960, 680)
@@ -57,6 +69,7 @@ class FridayWindow(QMainWindow):
 
         self._load_profile_data()
         self._setup_shortcuts()
+        self._setup_tray()
 
     def _get_version(self):
         try:
@@ -80,6 +93,11 @@ class FridayWindow(QMainWindow):
 
     def resizeEvent(self, event):
         self._update_mask()
+        if hasattr(self, '_resize_grip'):
+            self._resize_grip.move(
+                self.width() - self._resize_grip.width() - 4,
+                self.height() - self._resize_grip.height() - 4,
+            )
         super().resizeEvent(event)
 
     def paintEvent(self, event):
@@ -219,10 +237,16 @@ class FridayWindow(QMainWindow):
         try:
             from friday.core.orchestrator import get_orchestrator
             o = get_orchestrator()
+            try:
+                intent = await o.intent_parser.parse(text)
+                self._agent_panel.set_status(intent.type, "running")
+            except Exception:
+                pass
             result = await o.process(text)
             if result.success:
                 self._output.append_output(result.output[:600], "success")
-                self._agent_panel.set_status(result.agent, "done")
+                agent_name = result.agent if hasattr(result, 'agent') else "assistant"
+                self._agent_panel.set_status(agent_name, "done")
             else:
                 self._output.append_output(result.output[:600], "error")
         except Exception:
@@ -273,11 +297,24 @@ class FridayWindow(QMainWindow):
                 logger.debug("Voice loop error: %s", e)
                 await asyncio.sleep(0.5)
 
+    def _setup_tray(self):
+        self._tray_icon = None
+        try:
+            from .tray import FridayTray
+            self._tray_icon = FridayTray()
+        except Exception:
+            pass
+
     def closeEvent(self, event):
         self._voice_active = False
         if self._voice_task:
             self._voice_task.cancel()
-        event.accept()
+        event.ignore()
+        self.hide()
+        if self._tray_icon:
+            from .notifications import Notifier
+            import asyncio
+            asyncio.run(Notifier().info("FRIDAY minimized to tray"))
 
     def _toggle_profile(self):
         if self._stack.currentIndex() == 0:

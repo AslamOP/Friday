@@ -18,7 +18,8 @@ class TaskDelegator:
             st = json.loads(c)
             if isinstance(st, list) and all("agent" in s and "input" in s for s in st):
                 logger.info("Delegated %d subtasks", len(st)); return st
-        except: pass
+        except Exception:
+            logger.warning("Failed to parse subtask JSON, falling back to single agent")
         intent = await self._intent.parse(user_input)
         return [{"agent": intent.type, "input": user_input}] if intent.type not in ("chat","gaming","challenge") else []
     async def dispatch(self, subtasks: list[dict], context: Context) -> list[tuple[dict, Result]]:

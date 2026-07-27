@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import subprocess
+import sys
 from pathlib import Path
 
 logger = logging.getLogger("friday.tray")
@@ -30,10 +31,9 @@ class FridayTray:
 
     def _launch_gui(self):
         friday_dir = Path(__file__).resolve().parent.parent.parent.parent
-        venv_python = friday_dir / ".venv" / "bin" / "python"
         main_py = friday_dir / "friday" / "main.py"
         subprocess.Popen(
-            [str(venv_python), str(main_py), "--gui"],
+            [sys.executable, str(main_py), "--gui"],
             cwd=str(friday_dir),
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
@@ -41,10 +41,9 @@ class FridayTray:
 
     def _launch_repl(self):
         friday_dir = Path(__file__).resolve().parent.parent.parent.parent
-        venv_python = friday_dir / ".venv" / "bin" / "python"
         main_py = friday_dir / "friday" / "main.py"
         subprocess.Popen(
-            [str(venv_python), str(main_py)],
+            [sys.executable, str(main_py)],
             cwd=str(friday_dir),
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,

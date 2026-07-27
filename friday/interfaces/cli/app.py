@@ -18,7 +18,7 @@ from friday.agents.software_engineer import SoftwareEngineerAgent
 from friday.agents.research_scientist import ResearchScientistAgent
 from friday.agents.automation_engineer import AutomationEngineerAgent
 from friday.agents.knowledge_manager import KnowledgeManagerAgent
-from friday.agents.academic_tutor import AcademicTutorAgent
+from friday.agents.study import StudyAgent
 from friday.agents.gaming_assistant import GamingAssistantAgent
 from friday.router.provider_registry import ProviderRegistry
 from friday.interfaces.audio import SpeechToText, TextToSpeech
@@ -52,7 +52,7 @@ class FridayREPL:
         for a in [
             MentorAgent(), PlannerAgent(), SoftwareEngineerAgent(),
             ResearchScientistAgent(), AutomationEngineerAgent(),
-            KnowledgeManagerAgent(), AcademicTutorAgent(), GamingAssistantAgent(),
+            KnowledgeManagerAgent(), StudyAgent(), GamingAssistantAgent(),
         ]:
             self.orchestrator.register_agent(a)
         self.history: list[dict] = []
