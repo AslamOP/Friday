@@ -41,13 +41,13 @@ class ZenClient:
         return await self.call_model(self.get_model(task_type), prompt, system_prompt)
 
     async def call_model(self, model: str, prompt: str, system_prompt: str = "") -> dict[str, Any]:
-        if not self.api_key:
-            return {"content": "", "model": "none", "usage": {}}
         payload = self._build_payload(model, prompt, system_prompt, stream=False)
         try:
+            headers = {"Content-Type": "application/json"}
+            if self.api_key:
+                headers["Authorization"] = f"Bearer {self.api_key}"
             r = await httpx.AsyncClient(timeout=8.0).post(
-                self.base_url,
-                headers={"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"},
+                self.base_url, headers=headers,
                 json=payload,
             )
             r.raise_for_status()
@@ -67,15 +67,14 @@ class ZenClient:
             yield chunk
 
     async def call_model_stream(self, model: str, prompt: str, system_prompt: str = "") -> AsyncGenerator[dict[str, Any], None]:
-        if not self.api_key:
-            yield {"token": "", "model": "none", "done": True}
-            return
         payload = self._build_payload(model, prompt, system_prompt, stream=True)
         try:
+            headers = {"Content-Type": "application/json"}
+            if self.api_key:
+                headers["Authorization"] = f"Bearer {self.api_key}"
             async with httpx.AsyncClient(timeout=30.0) as client:
                 async with client.stream(
-                    "POST", self.base_url,
-                    headers={"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"},
+                    "POST", self.base_url, headers=headers,
                     json=payload,
                 ) as resp:
                     async for line in resp.aiter_lines():

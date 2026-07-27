@@ -149,32 +149,24 @@ class ProviderRegistry:
         p = self._providers.get(name)
         if not p:
             return "unknown"
-        if p.type == "local":
-            try:
-                import httpx
-                async with httpx.AsyncClient(timeout=3) as c:
-                    r = await c.get(f"{p.endpoint}/api/tags")
-                    p.status = "online" if r.status_code == 200 else "offline"
-            except Exception:
-                p.status = "offline"
-        else:
-            if not p.api_key:
-                p.status = "offline"
+        try:
+            import httpx
+            headers = {}
+            if p.api_key:
+                headers["Authorization"] = f"Bearer {p.api_key}"
+            if p.type == "local":
+                url = f"{p.endpoint}/api/tags"
+            elif name == "zen":
+                url = f"{p.endpoint}/models"
+            elif name == "openrouter":
+                url = f"{p.endpoint}/auth/key"
             else:
-                try:
-                    import httpx
-                    headers = {"Authorization": f"Bearer {p.api_key}"}
-                    if name == "zen":
-                        url = f"{p.endpoint}/models"
-                    elif name == "openrouter":
-                        url = f"{p.endpoint}/auth/key"
-                    else:
-                        url = f"{p.endpoint}/models"
-                    async with httpx.AsyncClient(timeout=3) as c:
-                        r = await c.get(url, headers=headers)
-                        p.status = "online" if r.status_code in (200, 201) else "offline"
-                except Exception:
-                    p.status = "offline"
+                url = f"{p.endpoint}/models"
+            async with httpx.AsyncClient(timeout=3) as c:
+                r = await c.get(url, headers=headers)
+                p.status = "online" if r.status_code in (200, 201, 401, 403) else "offline"
+        except Exception:
+            p.status = "offline"
         self._save()
         return p.status
 
@@ -206,7 +198,8 @@ class ProviderRegistry:
         try:
             if provider.name == "zen":
                 from friday.router.zen_client import ZenClient
-                client = ZenClient(provider.api_key, base_url=provider.endpoint)
+                api_url = provider.endpoint.rstrip("/") + "/chat/completions"
+                client = ZenClient(provider.api_key, base_url=api_url)
                 model = provider.models[0] if provider.models else "deepseek-v4-flash-free"
                 return await client.call_model(model, prompt, system_prompt)
             elif provider.name == "openrouter":
@@ -230,7 +223,8 @@ class ProviderRegistry:
         try:
             if provider.name == "zen":
                 from friday.router.zen_client import ZenClient
-                client = ZenClient(provider.api_key, base_url=provider.endpoint)
+                api_url = provider.endpoint.rstrip("/") + "/chat/completions"
+                client = ZenClient(provider.api_key, base_url=api_url)
                 model = provider.models[0] if provider.models else "deepseek-v4-flash-free"
                 async for chunk in client.call_model_stream(model, prompt, system_prompt):
                     yield chunk
