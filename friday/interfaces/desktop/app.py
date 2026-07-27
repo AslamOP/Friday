@@ -2,6 +2,7 @@ import asyncio
 import logging
 import subprocess
 import sys
+import threading
 
 from PyQt6.QtCore import QPointF, QRectF, Qt, QTimer
 from PyQt6.QtGui import QBrush, QColor, QFont, QLinearGradient, QPainter, QPainterPath, QRegion
@@ -15,6 +16,16 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from friday import __version__
+from friday.agents.automation_engineer import AutomationEngineerAgent
+from friday.agents.gaming_assistant import GamingAssistantAgent
+from friday.agents.knowledge_manager import KnowledgeManagerAgent
+from friday.agents.mentor import MentorAgent
+from friday.agents.planner import PlannerAgent
+from friday.agents.research_scientist import ResearchScientistAgent
+from friday.agents.software_engineer import SoftwareEngineerAgent
+from friday.agents.study import StudyAgent
+from friday.core.orchestrator import get_orchestrator
 from friday.interfaces.audio import SpeechToText
 from friday.tools.system_monitor import SystemMonitor  # noqa: direct import to avoid bs4 dep
 
@@ -70,6 +81,22 @@ class FridayWindow(QMainWindow):
         self._load_profile_data()
         self._setup_shortcuts()
         self._setup_tray()
+        asyncio.ensure_future(self._init_orchestrator())
+
+    async def _init_orchestrator(self):
+        try:
+            o = get_orchestrator()
+            for ac in [
+                MentorAgent(), PlannerAgent(), SoftwareEngineerAgent(),
+                ResearchScientistAgent(), AutomationEngineerAgent(),
+                KnowledgeManagerAgent(), StudyAgent(), GamingAssistantAgent(),
+            ]:
+                o.register_agent(ac)
+            await o.initialize()
+            self._output.append_output("Orchestrator ready — all agents online.", "success")
+        except Exception as e:
+            logger.warning("Orchestrator init failed: %s", e)
+            self._output.append_output("Backend agents unavailable. Run daemon for full support.", "warning")
 
     def _get_version(self):
         try:
@@ -279,7 +306,7 @@ class FridayWindow(QMainWindow):
             "  help / ?     Show this help",
             "  clear        Clear terminal",
             "  status       Show system status",
-            "  <question>   Ask FRIDAY (requires daemon running)",
+            "  <question>   Ask FRIDAY anything",
         ]:
             self._output.append_output(line, "info")
 
@@ -309,23 +336,42 @@ class FridayWindow(QMainWindow):
                 await asyncio.sleep(0.5)
 
     def _setup_tray(self):
-        self._tray_icon = None
+        self._tray_running = False
         try:
             from .tray import FridayTray
-            self._tray_icon = FridayTray()
-        except Exception:
-            pass
+            tray = FridayTray()
+            t = threading.Thread(target=tray.run, daemon=True)
+            t.start()
+            self._tray_running = True
+        except Exception as e:
+            logger.debug("Tray not available: %s", e)
 
     def closeEvent(self, event):
         self._voice_active = False
         if self._voice_task:
             self._voice_task.cancel()
-        event.ignore()
-        self.hide()
-        if self._tray_icon:
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                asyncio.ensure_future(self._save_and_close())
+        except RuntimeError:
+            pass
+        if hasattr(self, '_tray_running') and self._tray_running:
+            event.ignore()
+            self.hide()
             from .notifications import Notifier
-            import asyncio
-            asyncio.run(Notifier().info("FRIDAY minimized to tray"))
+            asyncio.ensure_future(Notifier().info("FRIDAY minimized to tray"))
+        else:
+            event.accept()
+            QApplication.quit()
+
+    async def _save_and_close(self):
+        try:
+            o = get_orchestrator()
+            await o.persistence.save_all()
+            logger.info("Memory saved on close")
+        except Exception as e:
+            logger.warning("Save on close failed: %s", e)
 
     def _toggle_profile(self):
         if self._stack.currentIndex() == 0:
