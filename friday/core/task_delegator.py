@@ -1,27 +1,35 @@
-import asyncio, logging, json
-from friday.agents.base import BaseAgent, Context, Result, Task
+import asyncio
+import json
+import logging
+
+from friday.agents.base import Context, Result, Task
 from friday.core.agent_router import AgentRouter
 from friday.core.intent_parser import Intent, IntentParser
 from friday.router.provider_registry import ProviderRegistry
+
 logger = logging.getLogger("friday.task_delegator")
 
 _PROMPT = "Break this into subtasks for specialist agents. Available agents: software_engineer (code), research_scientist (research), planner (planning), study (study), mentor (challenge), knowledge_manager (knowledge), automation_engineer (automate), gaming_assistant (gaming). Return JSON array of objects each with keys 'agent' and 'input'. Single item if only one needed. Empty array if none.\nRequest: {input}"
 
 class TaskDelegator:
     def __init__(self, router: AgentRouter):
-        self._router = router; self._intent = IntentParser(); self._llm = ProviderRegistry()
+        self._router = router
+        self._intent = IntentParser()
+        self._llm = ProviderRegistry()
     async def plan(self, user_input: str) -> list[dict[str, str]]:
         r = await self._llm.route("plan", _PROMPT.format(input=user_input))
         c = r.get("content", "[]").strip()
-        if c.startswith("```"): c = c.split("\n",1)[-1].rsplit("```",1)[0]
+        if c.startswith("```"):
+            c = c.split("\n", 1)[-1].rsplit("```", 1)[0]
         try:
             st = json.loads(c)
             if isinstance(st, list) and all("agent" in s and "input" in s for s in st):
-                logger.info("Delegated %d subtasks", len(st)); return st
+                logger.info("Delegated %d subtasks", len(st))
+                return st
         except Exception:
             logger.warning("Failed to parse subtask JSON, falling back to single agent")
         intent = await self._intent.parse(user_input)
-        return [{"agent": intent.type, "input": user_input}] if intent.type not in ("chat","gaming","challenge") else []
+        return [{"agent": intent.type, "input": user_input}] if intent.type not in ("chat", "gaming", "challenge") else []
     async def dispatch(self, subtasks: list[dict], context: Context) -> list[tuple[dict, Result]]:
         async def run(st):
             agent = await self._router.route(Intent(type=st["agent"], confidence=1.0, entities={}))

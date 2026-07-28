@@ -1,10 +1,12 @@
-from ..base import BaseAgent, Context, Result, Task
-from . import prompts
-from friday.router.provider_registry import ProviderRegistry
-from friday.tools.web_search import WebSearchTool
-from friday.tools.file_ops import FileOps
 import re
 from pathlib import Path
+
+from friday.router.provider_registry import ProviderRegistry
+from friday.tools.file_ops import FileOps
+from friday.tools.web_search import WebSearchTool
+
+from ..base import BaseAgent, Result
+from . import prompts
 
 
 class ResearchScientistAgent(BaseAgent):

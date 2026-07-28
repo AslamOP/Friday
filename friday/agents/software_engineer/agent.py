@@ -1,10 +1,12 @@
-from ..base import BaseAgent, Context, Result, Task
-from . import prompts
-from friday.router.provider_registry import ProviderRegistry
-from friday.tools.shell_sandbox import ShellSandbox
-from friday.tools.file_ops import FileOps
 import re
 from pathlib import Path
+
+from friday.router.provider_registry import ProviderRegistry
+from friday.tools.file_ops import FileOps
+from friday.tools.shell_sandbox import ShellSandbox
+
+from ..base import BaseAgent, Result
+from . import prompts
 
 CB = re.compile(r"```(\w+)?\n(.+?)```", re.DOTALL)
 _RUN = re.compile(r"(run|execute|bash|shell)\s+`([^`]+)`", re.IGNORECASE)

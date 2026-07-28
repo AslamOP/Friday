@@ -1,1 +1,3 @@
-from .agent import SoftwareEngineerAgent; __all__ = ["SoftwareEngineerAgent"]
+from .agent import SoftwareEngineerAgent
+
+__all__ = ["SoftwareEngineerAgent"]

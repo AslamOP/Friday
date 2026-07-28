@@ -1,9 +1,11 @@
 import asyncio
-from ..base import BaseAgent, Context, Result, Task
-from . import prompts
-from friday.router.provider_registry import ProviderRegistry
 import json
 from pathlib import Path
+
+from friday.router.provider_registry import ProviderRegistry
+
+from ..base import BaseAgent, Result
+from . import prompts
 
 CONFIG_PATH = Path("~/.config/friday/gaming_profile.json").expanduser()
 
@@ -39,9 +41,8 @@ class GamingAssistantAgent(BaseAgent):
         games = await _load_games()
 
         # handle "i play <games>" to register games
-        if low.startswith("i play") or low.startswith("i am playing") or "play" in low and len(low) < 100:
-            raw = text
-            import re
+        import re
+        if low.startswith("i play") or low.startswith("i am playing") or ("play" in low and len(low) < 100):
             game_names = re.findall(r'(?:play(?:ing)?\s+)([\w\s]+?)(?:,|\.|and|$)', low)
             if not game_names:
                 game_names = [low.replace("i play", "").replace("i am playing", "").strip().strip(".,")]

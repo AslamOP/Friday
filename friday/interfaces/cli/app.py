@@ -3,26 +3,26 @@ import logging
 import shutil
 from datetime import datetime
 
+from rich import box
 from rich.console import Console
+from rich.live import Live
+from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.table import Table
-from rich.markdown import Markdown
-from rich.live import Live
-from rich import box
 from rich.text import Text
 
-from friday.core.orchestrator import get_orchestrator
+from friday import __version__
+from friday.agents.automation_engineer import AutomationEngineerAgent
+from friday.agents.gaming_assistant import GamingAssistantAgent
+from friday.agents.knowledge_manager import KnowledgeManagerAgent
 from friday.agents.mentor import MentorAgent
 from friday.agents.planner import PlannerAgent
-from friday.agents.software_engineer import SoftwareEngineerAgent
 from friday.agents.research_scientist import ResearchScientistAgent
-from friday.agents.automation_engineer import AutomationEngineerAgent
-from friday.agents.knowledge_manager import KnowledgeManagerAgent
+from friday.agents.software_engineer import SoftwareEngineerAgent
 from friday.agents.study import StudyAgent
-from friday.agents.gaming_assistant import GamingAssistantAgent
-from friday.router.provider_registry import ProviderRegistry
+from friday.core.orchestrator import get_orchestrator
 from friday.interfaces.audio import SpeechToText, TextToSpeech
-from friday import __version__
+from friday.router.provider_registry import ProviderRegistry
 
 logger = logging.getLogger("friday.cli")
 

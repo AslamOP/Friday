@@ -3,9 +3,10 @@ import json
 import re
 from pathlib import Path
 
+from friday.router.provider_registry import ProviderRegistry
+
 from ..base import BaseAgent, Context, Result, Task
 from . import prompts
-from friday.router.provider_registry import ProviderRegistry
 
 CONFIG_PATH = Path("~/.config/friday/study_agent.json").expanduser()
 
@@ -57,10 +58,13 @@ class StudyAgent(BaseAgent):
             pass
         return {}
 
-    def _save_config(self):
+    async def _save_config(self):
         try:
-            CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
-            CONFIG_PATH.write_text(json.dumps(self._cfg))
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(None, lambda: (
+                CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True),
+                CONFIG_PATH.write_text(json.dumps(self._cfg)),
+            ))
         except Exception:
             pass
 
@@ -73,12 +77,12 @@ class StudyAgent(BaseAgent):
 
         if "enable online" in low:
             self._cfg["online"] = True
-            self._save_config()
+            await self._save_config()
             return Result(success=True, output=ONLINE_ENABLED_MSG, agent=self.name)
 
         if "disable online" in low:
             self._cfg["online"] = False
-            self._save_config()
+            await self._save_config()
             return Result(success=True, output=ONLINE_DISABLED_MSG, agent=self.name)
 
         folder = self._cfg.get("folder", "")
@@ -165,7 +169,7 @@ class StudyAgent(BaseAgent):
 
         files = list(path.rglob("*"))
         self._cfg["folder"] = str(path)
-        self._save_config()
+        await self._save_config()
 
         msg = f"📚 **Study folder set to:** `{path}`"
         readable = sum(1 for f in files if f.suffix in {

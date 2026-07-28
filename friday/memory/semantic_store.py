@@ -1,19 +1,28 @@
 import asyncio
-import json, logging, uuid
+import json
+import logging
 from pathlib import Path
+
 from friday.memory.embedding_service import EmbeddingService
+
 logger = logging.getLogger("friday.semantic_store")
 class SemanticStore:
     def __init__(self, persist_dir: str = "data/chroma"):
-        self._persist_dir = Path(persist_dir); self._persist_dir.mkdir(parents=True, exist_ok=True)
-        self._emb = EmbeddingService(); self._entries: dict[str, dict] = {}
+        self._persist_dir = Path(persist_dir)
+        self._persist_dir.mkdir(parents=True, exist_ok=True)
+        self._emb = EmbeddingService()
+        self._entries: dict[str, dict] = {}
         self._load()
-    def _path(self): return self._persist_dir / "entries.json"
+
+    def _path(self):
+        return self._persist_dir / "entries.json"
+
     def _load(self):
         p = self._path()
         if p.exists():
             try:
-                with open(p) as f: raw = json.load(f)
+                with open(p) as f:
+                    raw = json.load(f)
                 self._entries = {e["id"]: e for e in raw}
                 logger.info("Loaded %d entries from %s", len(self._entries), p)
             except Exception as e:
@@ -31,13 +40,16 @@ class SemanticStore:
         await self._save()
     async def search(self, query: str, top_k: int = 5) -> list[dict]:
         qe = await self._emb.embed(query)
-        if not qe or not self._entries: return []
+        if not qe or not self._entries:
+            return []
         import math
         scored = []
         for eid, e in self._entries.items():
-            if not e["embedding"]: continue
+            if not e["embedding"]:
+                continue
             dot = sum(a * b for a, b in zip(qe, e["embedding"]))
-            nq = math.sqrt(sum(x*x for x in qe)); ne = math.sqrt(sum(x*x for x in e["embedding"]))
+            nq = math.sqrt(sum(x * x for x in qe))
+            ne = math.sqrt(sum(x * x for x in e["embedding"]))
             sim = dot / (nq * ne) if nq and ne else 0
             scored.append((sim, eid, e))
         scored.sort(key=lambda x: -x[0])

@@ -11,13 +11,17 @@ logger = logging.getLogger("friday.plugin_manager")
 
 
 def _default_plugin_dir() -> Path:
-    cfg = get_config()
     p = Path("friday/plugins")
     if p.is_dir():
         return p.resolve()
     alt = Path(__file__).parent.parent / "plugins"
     if alt.is_dir():
         return alt.resolve()
+    cfg = get_config()
+    if cfg.data_dir:
+        p = Path(cfg.data_dir) / "plugins"
+        if p.is_dir():
+            return p.resolve()
     p.mkdir(parents=True, exist_ok=True)
     return p.resolve()
 

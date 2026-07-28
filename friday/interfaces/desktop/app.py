@@ -6,7 +6,7 @@ import sys
 import threading
 
 from PyQt6.QtCore import QPointF, QRectF, Qt, QTimer
-from PyQt6.QtGui import QBrush, QColor, QFont, QLinearGradient, QPainter, QPainterPath, QRegion
+from PyQt6.QtGui import QBrush, QColor, QFont, QLinearGradient, QPainter, QPainterPath, QPen, QRegion
 from PyQt6.QtWidgets import (
     QApplication,
     QHBoxLayout,
@@ -17,7 +17,6 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from friday import __version__
 from friday.agents.automation_engineer import AutomationEngineerAgent
 from friday.agents.gaming_assistant import GamingAssistantAgent
 from friday.agents.knowledge_manager import KnowledgeManagerAgent
@@ -26,12 +25,22 @@ from friday.agents.planner import PlannerAgent
 from friday.agents.research_scientist import ResearchScientistAgent
 from friday.agents.software_engineer import SoftwareEngineerAgent
 from friday.agents.study import StudyAgent
-from friday.core.ipc import GUI_SOCK, UnixServer, is_running, send_command
+from friday.core.ipc import GUI_SOCK, UnixServer, is_running, send_command_sync
 from friday.core.orchestrator import get_orchestrator
 from friday.interfaces.audio import SpeechToText
-from friday.tools.system_monitor import SystemMonitor  # noqa: direct import to avoid bs4 dep
+from friday.tools.system_monitor import SystemMonitor  # noqa: F401
 
-from .widgets import AgentPanel, CommandBar, HoloSphere, OutputArea, ProfilePanel, SettingsDialog, StatPanel, TitleBar, UpdatePanel
+from .widgets import (
+    AgentPanel,
+    CommandBar,
+    HoloSphere,
+    OutputArea,
+    ProfilePanel,
+    SettingsDialog,
+    StatPanel,
+    TitleBar,
+    UpdatePanel,
+)
 
 logger = logging.getLogger("friday.desktop")
 
@@ -153,7 +162,7 @@ class FridayWindow(QMainWindow):
         path.addRoundedRect(QRectF(self.rect()), 14, 14)
         self.setMask(QRegion(path.toFillPolygon().toPolygon()))
 
-    def resizeEvent(self, event):
+    def resizeEvent(self, event):  # noqa: N802
         self._update_mask()
         if hasattr(self, '_resize_grip'):
             self._resize_grip.move(
@@ -163,7 +172,7 @@ class FridayWindow(QMainWindow):
         self._position_update_panel()
         super().resizeEvent(event)
 
-    def paintEvent(self, event):
+    def paintEvent(self, event):  # noqa: N802
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         path = QPainterPath()
@@ -381,7 +390,7 @@ class FridayWindow(QMainWindow):
         except Exception as e:
             logger.debug("Tray not available: %s", e)
 
-    def closeEvent(self, event):
+    def closeEvent(self, event):  # noqa: N802
         self._voice_active = False
         if self._voice_task:
             self._voice_task.cancel()

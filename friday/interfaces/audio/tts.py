@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import os
 
 logger = logging.getLogger("friday.tts")
 
@@ -24,30 +23,37 @@ class TextToSpeech:
             logger.warning("TTS failed: %s", e)
 
     async def _edge_speak(self, text: str) -> None:
-        import edge_tts
+        import importlib.util
 
-        voice = self._voice or "en-US-AriaNeural"
-        tmp_path = "/tmp/friday_tts.mp3"
-        try:
-            communicate = edge_tts.Communicate(text, voice)
-            await communicate.save(tmp_path)
-
+        if importlib.util.find_spec("edge_tts"):
             import subprocess
-            loop = asyncio.get_running_loop()
-            await loop.run_in_executor(
-                None,
-                lambda: subprocess.run(
-                    ["ffplay", "-nodisp", "-autoexit", tmp_path],
-                    capture_output=True,
-                    timeout=60,
-                ),
-            )
-        finally:
-            if os.path.exists(tmp_path):
-                try:
-                    os.remove(tmp_path)
-                except Exception:
-                    pass
+
+            import edge_tts
+
+            voice = self._voice or "en-US-AriaNeural"
+            tmp_path = "/tmp/friday_tts.mp3"
+            try:
+                communicate = edge_tts.Communicate(text, voice)
+                await communicate.save(tmp_path)
+
+                loop = asyncio.get_running_loop()
+                await loop.run_in_executor(
+                    None,
+                    lambda: subprocess.run(
+                        ["ffplay", "-nodisp", "-autoexit", tmp_path],
+                        capture_output=True,
+                        timeout=60,
+                    ),
+                )
+                import subprocess
+            finally:
+                import os
+
+                if os.path.exists(tmp_path):
+                    try:
+                        os.remove(tmp_path)
+                    except Exception:
+                        pass
 
     def _pyttsx3_speak(self, text: str) -> None:
         import pyttsx3
@@ -62,11 +68,19 @@ class TextToSpeech:
     @property
     def available(self) -> bool:
         try:
-            import edge_tts
-            return True
-        except ImportError:
-            try:
-                import pyttsx3
+            import importlib.util
+
+            if importlib.util.find_spec("edge_tts"):
                 return True
-            except ImportError:
-                return False
+        except ImportError:
+            pass
+
+        try:
+            import importlib.util
+
+            if importlib.util.find_spec("pyttsx3"):
+                return True
+        except ImportError:
+            pass
+
+        return False

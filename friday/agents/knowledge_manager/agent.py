@@ -1,6 +1,7 @@
-from ..base import BaseAgent, Context, Result, Task
-from . import prompts
 from friday.router.provider_registry import ProviderRegistry
+
+from ..base import BaseAgent, Result
+from . import prompts
 
 KG = None
 VS = None
@@ -66,7 +67,6 @@ class KnowledgeManagerAgent(BaseAgent):
 
         # --- DELETE ---
         if cmd in ("delete", "remove", "forget"):
-            kg_count = len(KG._graph)
             if "all" in text or "everything" in text or "clear" in text:
                 KG._graph.clear()
                 KG._relations.clear()
@@ -195,8 +195,8 @@ Help the user understand or modify FRIDAY's memory. Stay local — no internet."
         return "\n".join(lines)
 
     def _fmt_study(self):
-        from pathlib import Path
         import json
+        from pathlib import Path
         cfg_path = Path("~/.config/friday/study_agent.json").expanduser()
         if not cfg_path.exists():
             return "Study config: not set up yet."

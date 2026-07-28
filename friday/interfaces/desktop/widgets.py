@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 import asyncio
+import logging
 import math
 import os
 import random
@@ -26,6 +29,8 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+
+logger = logging.getLogger("friday.desktop.widgets")
 
 
 class HoloSphere(QWidget):
@@ -65,34 +70,38 @@ class HoloSphere(QWidget):
                 alpha_base = 0.3
                 color_hue = random.uniform(340, 360) + random.uniform(0, 60)
 
-            self._particles.append({
-                'angle': random.uniform(0, 2 * math.pi),
-                'speed': random.uniform(*speed_range),
-                'radius': random.uniform(*radius_range),
-                'size': random.uniform(*size_range),
-                'alpha': alpha_base * random.uniform(0.7, 1.0),
-                'type': particle_type,
-                'color_hue': color_hue,
-                'color_sat': random.uniform(60, 100),
-                'color_val': random.uniform(60, 90),
-                'tail_length': random.uniform(8, 20),
-                'trail_speed': random.uniform(0.3, 0.8),
-                'sparkle_prob': 0.02 if particle_type == 0 else 0.01,
-                'glow_intensity': random.uniform(0.3, 0.7),
-                'last_update': random.uniform(0, 1),
-            })
+            self._particles.append(
+                {
+                    "angle": random.uniform(0, 2 * math.pi),
+                    "speed": random.uniform(*speed_range),
+                    "radius": random.uniform(*radius_range),
+                    "size": random.uniform(*size_range),
+                    "alpha": alpha_base * random.uniform(0.7, 1.0),
+                    "type": particle_type,
+                    "color_hue": color_hue,
+                    "color_sat": random.uniform(60, 100),
+                    "color_val": random.uniform(60, 90),
+                    "tail_length": random.uniform(8, 20),
+                    "trail_speed": random.uniform(0.3, 0.8),
+                    "sparkle_prob": 0.02 if particle_type == 0 else 0.01,
+                    "glow_intensity": random.uniform(0.3, 0.7),
+                    "last_update": random.uniform(0, 1),
+                }
+            )
 
     def _init_inner_particles(self):
         for i in range(20):
-            self._inner_particles.append({
-                'angle': random.uniform(0, 2 * math.pi),
-                'speed': random.uniform(0.5, 1.5),
-                'radius': random.uniform(0.05, 0.15),
-                'size': random.uniform(0.5, 1.5),
-                'alpha': random.uniform(0.4, 0.8),
-                'phase': random.uniform(0, 2 * math.pi),
-                'glow_phase': random.uniform(0, 6.28),
-            })
+            self._inner_particles.append(
+                {
+                    "angle": random.uniform(0, 2 * math.pi),
+                    "speed": random.uniform(0.5, 1.5),
+                    "radius": random.uniform(0.05, 0.15),
+                    "size": random.uniform(0.5, 1.5),
+                    "alpha": random.uniform(0.4, 0.8),
+                    "phase": random.uniform(0, 2 * math.pi),
+                    "glow_phase": random.uniform(0, 6.28),
+                }
+            )
 
     def _tick(self):
         self._angle = (self._angle + 0.025) % (2 * math.pi)
@@ -100,30 +109,30 @@ class HoloSphere(QWidget):
         self._sparkle_time = (self._sparkle_time + 0.05) % (2 * math.pi)
 
         for p in self._particles:
-            p['angle'] = (p['angle'] + p['speed'] * 0.015) % (2 * math.pi)
-            p['last_update'] = (p['last_update'] + 0.015) % 1.0
+            p["angle"] = (p["angle"] + p["speed"] * 0.015) % (2 * math.pi)
+            p["last_update"] = (p["last_update"] + 0.015) % 1.0
 
             # Update tail effects
-            if p['last_update'] < 0.3:
-                p['alpha'] = max(0.1, p['alpha'] * 0.98)
+            if p["last_update"] < 0.3:
+                p["alpha"] = max(0.1, p["alpha"] * 0.98)
             else:
-                p['alpha'] = min(0.2, p['alpha'] * 1.02)
+                p["alpha"] = min(0.2, p["alpha"] * 1.02)
 
         # Add sparkle effects occasionally
         if random.random() < 0.02:
             idx = random.randrange(len(self._particles))
             p = self._particles[idx]
-            p['sparkle'] = True
-            p['sparkle_timer'] = 0.0
+            p["sparkle"] = True
+            p["sparkle_timer"] = 0.0
 
         for p in self._inner_particles:
-            p['angle'] = (p['angle'] + p['speed'] * 0.015) % (2 * math.pi)
-            p['phase'] = (p['phase'] + 0.02) % (2 * math.pi)
-            p['glow_phase'] = (p['glow_phase'] + 0.03) % (2 * math.pi)
+            p["angle"] = (p["angle"] + p["speed"] * 0.015) % (2 * math.pi)
+            p["phase"] = (p["phase"] + 0.02) % (2 * math.pi)
+            p["glow_phase"] = (p["glow_phase"] + 0.03) % (2 * math.pi)
 
         self.update()
 
-    def paintEvent(self, event):
+    def paintEvent(self, event):  # noqa: N802
         if self.width() <= 0 or self.height() <= 0:
             return
         painter = QPainter(self)
@@ -159,7 +168,7 @@ class HoloSphere(QWidget):
         # Core holographic sphere with animated gradients
         core_gradient = QRadialGradient(QPointF(cx, cy), max_particle_radius)
         core_gradient.setColorAt(0, QColor(255, 255, 255, 50 + int(30 * math.sin(self._pulse))))
-        core_gradient.setColorAt(0.15, QColor(0, 180, 255, 80 + int(40 * math.sin(self._pulse + math.pi/4))))
+        core_gradient.setColorAt(0.15, QColor(0, 180, 255, 80 + int(40 * math.sin(self._pulse + math.pi / 4))))
         core_gradient.setColorAt(0.3, QColor(0, 120, 255, 120 + int(25 * math.sin(self._pulse * 2))))
         core_gradient.setColorAt(0.5, QColor(0, 80, 180, 150))
         core_gradient.setColorAt(0.6, QColor(0, 60, 140, 100))
@@ -171,8 +180,11 @@ class HoloSphere(QWidget):
         # Add subtle rotation for dynamic appearance
         painter.save()
         painter.rotate(math.sin(self._pulse * 0.5) * 2)
-        painter.drawEllipse(QPointF(cx - max_particle_radius, cy - max_particle_radius),
-                            max_particle_radius * 2, max_particle_radius * 2)
+        painter.drawEllipse(
+            QPointF(cx - max_particle_radius, cy - max_particle_radius),
+            max_particle_radius * 2,
+            max_particle_radius * 2,
+        )
         painter.restore()
 
         # Enhanced orbit rings
@@ -218,53 +230,52 @@ class HoloSphere(QWidget):
 
         # Draw particles with enhanced effects
         for p in self._particles:
-            px = cx + p['radius'] * max_particle_radius * math.cos(p['angle'])
-            py = cy + p['radius'] * max_particle_radius * math.sin(p['angle']) * 0.6
+            px = cx + p["radius"] * max_particle_radius * math.cos(p["angle"])
+            py = cy + p["radius"] * max_particle_radius * math.sin(p["angle"]) * 0.6
 
             # Calculate particle brightness
-            brightness = p['alpha'] * (0.6 + 0.4 * math.sin(self._pulse))
-            base_color = QColor(int(p['color_hue']), int(p['color_sat']), int(p['color_val']), int(brightness))
+            brightness = p["alpha"] * (0.6 + 0.4 * math.sin(self._pulse))
+            base_color = QColor(int(p["color_hue"]), int(p["color_sat"]), int(p["color_val"]), int(brightness))
 
             # Draw main particle with glow effect
             painter.setPen(Qt.PenStyle.NoPen)
 
             # Create gradient for particle
-            particle_gradient = QRadialGradient(QPointF(px, py), p['size'])
+            particle_gradient = QRadialGradient(QPointF(px, py), p["size"])
             particle_gradient.setColorAt(0, base_color.lighter(20))
             particle_gradient.setColorAt(0.7, base_color)
             particle_gradient.setColorAt(1, base_color.darker(50))
             painter.setBrush(QBrush(particle_gradient))
 
             # Draw particle
-            painter.drawEllipse(QPointF(px - p['size'], py - p['size']), p['size'] * 2, p['size'] * 2)
+            painter.drawEllipse(QPointF(px - p["size"], py - p["size"]), p["size"] * 2, p["size"] * 2)
 
             # Draw tail effect
-            if p.get('sparkle', False):
-                painter.setPen(QPen(base_color, max(1, int(p['size'] * 0.5))))
-                painter.drawLine(QPointF(px, py),
-                                QPointF(px - p['tail_length'] * math.cos(p['angle']),
-                                        py - p['tail_length'] * math.sin(p['angle'])))
-                p['sparkle'] = False
+            if p.get("sparkle", False):
+                painter.setPen(QPen(base_color, max(1, int(p["size"] * 0.5))))
+                painter.drawLine(
+                    QPointF(px, py),
+                    QPointF(px - p["tail_length"] * math.cos(p["angle"]), py - p["tail_length"] * math.sin(p["angle"])),
+                )
+                p["sparkle"] = False
 
         # Draw inner particles
         for p in self._inner_particles:
-            px = cx + p['radius'] * max_particle_radius * math.cos(p['angle'])
-            py = cy + p['radius'] * max_particle_radius * math.sin(p['angle'])
+            px = cx + p["radius"] * max_particle_radius * math.cos(p["angle"])
+            py = cy + p["radius"] * max_particle_radius * math.sin(p["angle"])
 
             # Create glow for inner particles
-            glow_color = QColor(0, 180, 255, int(150 * (0.5 + 0.5 * math.sin(p['glow_phase']))))
+            glow_color = QColor(0, 180, 255, int(150 * (0.5 + 0.5 * math.sin(p["glow_phase"]))))
 
             painter.setPen(QPen(glow_color, 0.5))
-            painter.drawEllipse(QPointF(px - p['size'], py - p['size']),
-                                p['size'] * 3, p['size'] * 3)
+            painter.drawEllipse(QPointF(px - p["size"], py - p["size"]), p["size"] * 3, p["size"] * 3)
 
             # Add subtle rotation for inner particles
             painter.save()
             painter.translate(px, py)
-            painter.rotate(p['phase'] * 180 / math.pi)
+            painter.rotate(p["phase"] * 180 / math.pi)
             painter.setPen(QPen(QColor(0, 200, 255, 100), 1))
-            painter.drawEllipse(QPointF(-p['size'], -p['size']),
-                                p['size'] * 2, p['size'] * 0.3)
+            painter.drawEllipse(QPointF(-p["size"], -p["size"]), p["size"] * 2, p["size"] * 0.3)
             painter.restore()
 
         # Add central highlight
@@ -273,15 +284,17 @@ class HoloSphere(QWidget):
         center_highlight.setColorAt(0.5, QColor(0, 200, 255, 100))
         center_highlight.setColorAt(1, QColor(0, 100, 255, 0))
         painter.setBrush(QBrush(center_highlight))
-        painter.drawEllipse(QPointF(cx - radius * 0.1, cy - radius * 0.1),
-                            radius * 0.2, radius * 0.2)
+        painter.drawEllipse(QPointF(cx - radius * 0.1, cy - radius * 0.1), radius * 0.2, radius * 0.2)
 
         # Add final border glow
         border_pen = QPen(QColor(0, 180, 255, 80), 2)
         border_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
         painter.setPen(border_pen)
-        painter.drawEllipse(QPointF(cx - max_particle_radius, cy - max_particle_radius),
-                            max_particle_radius * 2, max_particle_radius * 2)
+        painter.drawEllipse(
+            QPointF(cx - max_particle_radius, cy - max_particle_radius),
+            max_particle_radius * 2,
+            max_particle_radius * 2,
+        )
 
         painter.restore()
 
@@ -304,7 +317,7 @@ class CircularProgress(QWidget):
         self._color = QColor(color)
         self.update()
 
-    def paintEvent(self, event):
+    def paintEvent(self, event):  # noqa: N802
         if self.width() <= 0 or self.height() <= 0:
             return
         painter = QPainter(self)
@@ -457,27 +470,46 @@ class OutputArea(QTextEdit):
     @staticmethod
     def _render_markdown(text: str) -> str:
         import re
-        text = re.sub(r'```(\w*)\n(.*?)```', r'<pre style="color:#00d4ff;background:rgba(0,0,0,0.3);padding:4px 8px;border-radius:4px;">\2</pre>', text, flags=re.DOTALL)
-        text = re.sub(r'`([^`]+)`', r'<code style="color:#ffaa00;background:rgba(0,0,0,0.2);padding:1px 4px;border-radius:2px;">\1</code>', text)
-        text = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', text)
-        text = re.sub(r'\*(.+?)\*', r'<i>\1</i>', text)
-        text = re.sub(r'\[(.+?)\]\((.+?)\)', r'<a href="\2" style="color:#00d4ff;text-decoration:underline;">\1</a>', text)
-        text = re.sub(r'^### (.+)$', r'<b style="color:#00d4ff;font-size:13px;">\1</b>', text, flags=re.MULTILINE)
-        text = re.sub(r'^## (.+)$', r'<b style="color:#00d4ff;font-size:14px;">\1</b>', text, flags=re.MULTILINE)
-        text = re.sub(r'^# (.+)$', r'<b style="color:#00d4ff;font-size:15px;">\1</b>', text, flags=re.MULTILINE)
-        text = re.sub(r'^- (.+)$', r'• \1', text, flags=re.MULTILINE)
-        text = re.sub(r'\n', r'<br>', text)
+
+        text = re.sub(
+            r"```(\w*)\n(.*?)```",
+            r'<pre style="color:#00d4ff;background:rgba(0,0,0,0.3);padding:4px 8px;border-radius:4px;">\2</pre>',
+            text,
+            flags=re.DOTALL,
+        )
+        text = re.sub(
+            r"`([^`]+)`",
+            r'<code style="color:#ffaa00;background:rgba(0,0,0,0.2);padding:1px 4px;border-radius:2px;">\1</code>',
+            text,
+        )
+        text = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", text)
+        text = re.sub(r"\*(.+?)\*", r"<i>\1</i>", text)
+        text = re.sub(
+            r"\[(.+?)\]\((.+?)\)", r'<a href="\2" style="color:#00d4ff;text-decoration:underline;">\1</a>', text
+        )
+        text = re.sub(r"^### (.+)$", r'<b style="color:#00d4ff;font-size:13px;">\1</b>', text, flags=re.MULTILINE)
+        text = re.sub(r"^## (.+)$", r'<b style="color:#00d4ff;font-size:14px;">\1</b>', text, flags=re.MULTILINE)
+        text = re.sub(r"^# (.+)$", r'<b style="color:#00d4ff;font-size:15px;">\1</b>', text, flags=re.MULTILINE)
+        text = re.sub(r"^- (.+)$", r"• \1", text, flags=re.MULTILINE)
+        text = re.sub(r"\n", r"<br>", text)
         return text
 
     def append_output(self, text: str, style: str = "normal"):
         colors = {
-            "normal": "#c0d8f0", "system": "#00d4ff",
-            "success": "#00ff88", "warning": "#ffaa00",
-            "error": "#ff3355", "info": "#6b8caa",
+            "normal": "#c0d8f0",
+            "system": "#00d4ff",
+            "success": "#00ff88",
+            "warning": "#ffaa00",
+            "error": "#ff3355",
+            "info": "#6b8caa",
         }
         prefixes = {
-            "normal": "│ ", "system": "◈ ", "success": "✓ ",
-            "warning": "⚠ ", "error": "✗ ", "info": "· ",
+            "normal": "│ ",
+            "system": "◈ ",
+            "success": "✓ ",
+            "warning": "⚠ ",
+            "error": "✗ ",
+            "info": "· ",
         }
         color = colors.get(style, colors["normal"])
         prefix = prefixes.get(style, "│ ")
@@ -516,6 +548,7 @@ class TitleBar(QWidget):
 
         try:
             from friday import __version__
+
             ver = __version__
         except ImportError:
             ver = "1.0.0"
@@ -571,20 +604,20 @@ class TitleBar(QWidget):
             self._parent.showMaximized()
             self._max_btn.setText("❐")
 
-    def mousePressEvent(self, event):
+    def mousePressEvent(self, event):  # noqa: N802
         if event.button() == Qt.MouseButton.LeftButton:
             self._dragging = True
             self._drag_pos = event.globalPosition().toPoint()
             event.accept()
 
-    def mouseMoveEvent(self, event):
+    def mouseMoveEvent(self, event):  # noqa: N802
         if self._dragging and self._parent:
             delta = event.globalPosition().toPoint() - self._drag_pos
             self._parent.move(self._parent.pos() + delta)
             self._drag_pos = event.globalPosition().toPoint()
             event.accept()
 
-    def mouseReleaseEvent(self, event):
+    def mouseReleaseEvent(self, event):  # noqa: N802
         if event.button() == Qt.MouseButton.LeftButton:
             self._dragging = False
             event.accept()
@@ -638,12 +671,23 @@ class AgentPanel(QFrame):
         self._layout.setSpacing(2)
 
         h = QLabel("AGENTS")
-        h.setStyleSheet("color: #00d4ff; font-family: monospace; font-size: 10px; font-weight: bold; letter-spacing: 1px;")
+        h.setStyleSheet(
+            "color: #00d4ff; font-family: monospace; font-size: 10px; font-weight: bold; letter-spacing: 1px;"
+        )
         self._layout.addWidget(h)
         self._layout.addSpacing(4)
 
         self._rows = {}
-        for name in ["Analyzer", "Coder", "Planner", "Researcher", "Automator", "Tutor"]:
+        for name in [
+            "mentor",
+            "planner",
+            "software_engineer",
+            "research_scientist",
+            "automation_engineer",
+            "knowledge_manager",
+            "study",
+            "gaming_assistant",
+        ]:
             self._add_row(name)
 
     def _add_row(self, name: str):
@@ -672,18 +716,25 @@ class AgentPanel(QFrame):
             self._add_row(name)
         dot, st = self._rows[name]
         if status == "running":
-            dot.setText("●"); dot.setStyleSheet("color: #00d4ff; font-size: 11px;")
-            st.setText("active"); st.setStyleSheet("color: #00d4ff; font-family: monospace; font-size: 10px;")
+            dot.setText("●")
+            dot.setStyleSheet("color: #00d4ff; font-size: 11px;")
+            st.setText("active")
+            st.setStyleSheet("color: #00d4ff; font-family: monospace; font-size: 10px;")
         elif status == "done":
-            dot.setText("✓"); dot.setStyleSheet("color: #00ff88; font-size: 11px;")
-            st.setText("done"); st.setStyleSheet("color: #00ff88; font-family: monospace; font-size: 10px;")
+            dot.setText("✓")
+            dot.setStyleSheet("color: #00ff88; font-size: 11px;")
+            st.setText("done")
+            st.setStyleSheet("color: #00ff88; font-family: monospace; font-size: 10px;")
         else:
-            dot.setText("○"); dot.setStyleSheet("color: #4a6a8a; font-size: 11px;")
-            st.setText("idle"); st.setStyleSheet("color: #4a6a8a; font-family: monospace; font-size: 10px;")
+            dot.setText("○")
+            dot.setStyleSheet("color: #4a6a8a; font-size: 11px;")
+            st.setText("idle")
+            st.setStyleSheet("color: #4a6a8a; font-family: monospace; font-size: 10px;")
 
 
 class _Field(QWidget):
     """A labeled editable field for the profile panel."""
+
     def __init__(self, label: str, default="", is_long=False, parent=None):
         super().__init__(parent)
         self._editing = False
@@ -754,7 +805,9 @@ class ProfilePanel(QWidget):
         # header with edit button
         hdr_row = QHBoxLayout()
         hdr = QLabel("◆ PROFILE")
-        hdr.setStyleSheet("color: #00d4ff; font-family: monospace; font-size: 12px; font-weight: bold; letter-spacing: 1px;")
+        hdr.setStyleSheet(
+            "color: #00d4ff; font-family: monospace; font-size: 12px; font-weight: bold; letter-spacing: 1px;"
+        )
         hdr_row.addWidget(hdr)
         hdr_row.addStretch()
 
@@ -967,6 +1020,7 @@ class ProfilePanel(QWidget):
             from pathlib import Path
 
             from friday.memory.user_profile import UserProfile
+
             cfg_path = Path("~/.config/friday/user_profile.json").expanduser()
 
             goals_text = self._goals_field.get_value().strip()
@@ -1003,10 +1057,15 @@ class ProfilePanel(QWidget):
 
     def _editable_fields(self):
         return (
-            self._name_field, self._title_field,
-            self._lang_field, self._indent_field, self._linelen_field,
-            self._tone_field, self._citation_field,
-            self._goals_field, self._skills_field,
+            self._name_field,
+            self._title_field,
+            self._lang_field,
+            self._indent_field,
+            self._linelen_field,
+            self._tone_field,
+            self._citation_field,
+            self._goals_field,
+            self._skills_field,
         )
 
     def set_profile(self, profile: dict):
@@ -1064,6 +1123,7 @@ class ProfilePanel(QWidget):
 
 class _Card(QFrame):
     """Helper: card frame with header + widget layout."""
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setStyleSheet("""
@@ -1079,7 +1139,9 @@ class _Card(QFrame):
 
     def add_header(self, text):
         h = QLabel(text)
-        h.setStyleSheet("color: #00d4ff; font-family: monospace; font-size: 10px; font-weight: bold; letter-spacing: 1px;")
+        h.setStyleSheet(
+            "color: #00d4ff; font-family: monospace; font-size: 10px; font-weight: bold; letter-spacing: 1px;"
+        )
         self._layout.addWidget(h)
 
     def add_widget(self, w):
@@ -1097,6 +1159,7 @@ class UpdatePanel(QWidget):
         self._installing = False
         try:
             from friday import __version__
+
             self._version = __version__
         except ImportError:
             pass
@@ -1132,7 +1195,7 @@ class UpdatePanel(QWidget):
             return f"v{self._latest} available — click to install"
         return "up to date"
 
-    def paintEvent(self, event):
+    def paintEvent(self, event):  # noqa: N802
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         painter.setPen(Qt.PenStyle.NoPen)
@@ -1143,15 +1206,23 @@ class UpdatePanel(QWidget):
         f = QFont("monospace", 9)
         painter.setFont(f)
         painter.setPen(color)
-        painter.drawText(QRectF(8, 2, self.width() - 12, 14), Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, f"v{self._version}")
+        painter.drawText(
+            QRectF(8, 2, self.width() - 12, 14),
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+            f"v{self._version}",
+        )
 
         f2 = QFont("monospace", 8)
         painter.setFont(f2)
         status_color = QColor("#ffaa00") if (self._latest and self._latest != self._version) else QColor("#4a8a6a")
         painter.setPen(status_color)
-        painter.drawText(QRectF(8, 15, self.width() - 12, 14), Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, self._get_status_text())
+        painter.drawText(
+            QRectF(8, 15, self.width() - 12, 14),
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+            self._get_status_text(),
+        )
 
-    def mousePressEvent(self, event):
+    def mousePressEvent(self, event):  # noqa: N802
         if self._latest and self._latest != self._version and not self._installing:
             self._install()
 
@@ -1159,6 +1230,7 @@ class UpdatePanel(QWidget):
         async def _do():
             try:
                 import httpx
+
                 r = await httpx.AsyncClient(timeout=5).get(
                     "https://api.github.com/repos/king/FRIDAY/releases/latest",
                     headers={"Accept": "application/vnd.github.v3+json"},
@@ -1168,8 +1240,9 @@ class UpdatePanel(QWidget):
             except Exception:
                 pass
             self._update_style()
+
         try:
-            loop = asyncio.get_running_loop()
+            asyncio.get_running_loop()
             asyncio.ensure_future(_do())
         except RuntimeError:
             pass
@@ -1177,6 +1250,7 @@ class UpdatePanel(QWidget):
     def _install(self):
         self._installing = True
         self._update_style()
+
         async def _do():
             try:
                 proc = await asyncio.create_subprocess_shell(
@@ -1187,8 +1261,8 @@ class UpdatePanel(QWidget):
                 await proc.communicate()
             except Exception:
                 pass
-            import os
             os.execl(sys.executable, sys.executable, *sys.argv)
+
         asyncio.ensure_future(_do())
 
 
@@ -1233,6 +1307,7 @@ class SettingsDialog(QFrame):
         self._provider_rows = {}
         try:
             from friday.router.provider_registry import ProviderRegistry
+
             providers = ProviderRegistry().list_providers()
         except Exception:
             providers = []
@@ -1284,6 +1359,7 @@ class SettingsDialog(QFrame):
 
         try:
             from friday import __version__
+
             ver = __version__
         except ImportError:
             ver = "1.0.0"
@@ -1313,11 +1389,12 @@ class SettingsDialog(QFrame):
     async def _async_toggle_provider(self, name, checked):
         try:
             from friday.router.provider_registry import ProviderRegistry
+
             await ProviderRegistry().set_enabled(name, bool(checked))
         except Exception:
             pass
 
-    def showEvent(self, event):
+    def showEvent(self, event):  # noqa: N802
         super().showEvent(event)
         self._refresh_status()
 
@@ -1327,6 +1404,7 @@ class SettingsDialog(QFrame):
     async def _async_refresh_status(self):
         try:
             from friday.router.provider_registry import ProviderRegistry
+
             await ProviderRegistry().check_all()
             providers = ProviderRegistry().list_providers()
             status_colors = {"online": "#00ff88", "offline": "#ff3355", "unknown": "#6b8caa"}

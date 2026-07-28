@@ -1,10 +1,13 @@
 from dataclasses import dataclass, field
 from typing import Any
-import re
+
 
 @dataclass
 class Intent:
-    type: str; confidence: float = 1.0; entities: dict[str, Any] = field(default_factory=dict)
+    type: str
+    confidence: float = 1.0
+    entities: dict[str, Any] = field(default_factory=dict)
+
 
 _INTENTS = [
     ("code", ["build", "code", "program", "api", "function", "implement", "script", "develop"]),
@@ -16,6 +19,7 @@ _INTENTS = [
     ("automate", ["automate", "workflow", "pipeline", "schedule task", "cron"]),
     ("gaming", ["game", "gaming", "play", "fps", "settings", "performance"]),
 ]
+
 
 class IntentParser:
     def __init__(self):

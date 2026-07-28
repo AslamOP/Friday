@@ -1,5 +1,4 @@
 import logging
-from typing import Any
 
 from friday.memory.embedding_service import EmbeddingService
 from friday.memory.semantic_store import SemanticStore

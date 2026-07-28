@@ -1,23 +1,28 @@
-import asyncio, logging
+import asyncio
+import logging
 from functools import lru_cache
-from typing import AsyncGenerator
-from friday.agents.base import BaseAgent, Context, Result, Task
+
+from friday.agents.base import Result, Task
 from friday.core.agent_router import AgentRouter
 from friday.core.context_engine import ContextEngine
 from friday.core.event_bus import EventBus
 from friday.core.intent_parser import IntentParser
-from friday.core.task_scheduler import TaskScheduler
 from friday.core.task_delegator import TaskDelegator
+from friday.core.task_scheduler import TaskScheduler
 from friday.memory.entity_extractor import EntityExtractor
 from friday.memory.persistence import PersistenceManager
 from friday.plugin.manager import PluginManager
+
 logger = logging.getLogger("friday.orchestrator")
 
 class Orchestrator:
     def __init__(self):
-        self.intent_parser = IntentParser(); self.context_engine = ContextEngine()
-        self.agent_router = AgentRouter(); self.event_bus = EventBus()
-        self.task_scheduler = TaskScheduler(); self.entity_extractor = EntityExtractor()
+        self.intent_parser = IntentParser()
+        self.context_engine = ContextEngine()
+        self.agent_router = AgentRouter()
+        self.event_bus = EventBus()
+        self.task_scheduler = TaskScheduler()
+        self.entity_extractor = EntityExtractor()
         self.persistence = PersistenceManager()
         self.plugin_manager = PluginManager()
         self._delegator: TaskDelegator | None = None
@@ -28,12 +33,20 @@ class Orchestrator:
         await self.plugin_manager.discover_and_load_all(self)
         logger.info("Orchestrator ready")
 
-    def register_agent(self, agent): self.agent_router.register_agent(agent)
-    def register_intent(self, intent_type: str, keywords: list[str]): self.intent_parser.register_intent(intent_type, keywords)
-    def unregister_intent(self, intent_type: str): self.intent_parser.unregister_intent(intent_type)
-    def subscribe_event(self, event_type: str, callback): self.event_bus.subscribe(event_type, callback)
+    def register_agent(self, agent):
+        self.agent_router.register_agent(agent)
+
+    def register_intent(self, intent_type: str, keywords: list[str]):
+        self.intent_parser.register_intent(intent_type, keywords)
+
+    def unregister_intent(self, intent_type: str):
+        self.intent_parser.unregister_intent(intent_type)
+
+    def subscribe_event(self, event_type: str, callback):
+        self.event_bus.subscribe(event_type, callback)
+
     def publish_event(self, event_type: str, data: dict = None):
-        import asyncio; asyncio.ensure_future(self.event_bus.publish(event_type, data))
+        asyncio.ensure_future(self.event_bus.publish(event_type, data))
 
     async def process(self, user_input: str) -> Result:
         logger.info("Process: '%s'", user_input)
@@ -64,9 +77,10 @@ class Orchestrator:
             sub_results = await self._delegator.dispatch(result.subtasks, context)
             result.output += f"\n\n---\n## Subtasks\n{self._delegator.merge(sub_results)}"
 
-        await self.context_engine.remember("assistant" if result.success else "error", result.output[:1000], {"agent":result.agent,"success":result.success})
+        await self.context_engine.remember("assistant" if result.success else "error", result.output[:1000], {"agent": result.agent, "success": result.success})
         extracted = await self.entity_extractor.extract_and_store(f"{user_input} {result.output[:500]}")
-        if extracted: logger.debug("Extracted %d entities", extracted)
+        if extracted:
+            logger.debug("Extracted %d entities", extracted)
         await self.persistence.save_all()
         self.publish_event("agent:done", {"agent": result.agent, "success": result.success})
         return result

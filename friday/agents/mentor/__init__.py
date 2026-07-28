@@ -1,1 +1,3 @@
-from .agent import MentorAgent; __all__ = ["MentorAgent"]
+from .agent import MentorAgent
+
+__all__ = ["MentorAgent"]

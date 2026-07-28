@@ -1,6 +1,9 @@
-from ..base import BaseAgent, Context, Result, Task
-from . import prompts
 from friday.router.provider_registry import ProviderRegistry
+
+from ..base import BaseAgent, Result
+from . import prompts
+
+
 class MentorAgent(BaseAgent):
     name = "mentor"
     def __init__(self):

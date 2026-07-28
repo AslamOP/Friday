@@ -1,9 +1,11 @@
-from ..base import BaseAgent, Context, Result, Task
-from . import prompts
-from friday.router.provider_registry import ProviderRegistry
-from friday.tools.file_ops import FileOps
 import re
 from pathlib import Path
+
+from friday.router.provider_registry import ProviderRegistry
+from friday.tools.file_ops import FileOps  # noqa: F401
+
+from ..base import BaseAgent, Result
+from . import prompts
 
 
 class AutomationEngineerAgent(BaseAgent):
@@ -52,7 +54,7 @@ class AutomationEngineerAgent(BaseAgent):
                 saved.append(str(fpath))
 
         if saved:
-            content += f"\n\n📁 **Saved scripts:**\n" + "\n".join(f"- `{s}`" for s in saved)
+            content += "\n\n📁 **Saved scripts:**\n" + "\n".join(f"- `{s}`" for s in saved)
 
         return Result(success=True, output=content, agent=self.name)
 

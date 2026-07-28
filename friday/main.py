@@ -5,7 +5,6 @@ import signal
 import sys
 
 from friday import __version__
-from friday.config import get_config
 from friday.core.ipc import DAEMON_SOCK, UnixServer
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
@@ -13,9 +12,9 @@ logger = logging.getLogger("friday")
 
 
 async def daemon():
-    cfg = get_config()
     logger.info("FRIDAY v%s daemon starting...", __version__)
     from friday.core.orchestrator import get_orchestrator
+
     agent_classes = []
     for mod_path, cls_name in [
         ("friday.agents.mentor", "MentorAgent"),
@@ -49,6 +48,7 @@ async def daemon():
             resp = {"ok": False, "error": "unknown command"}
             if cmd_type == "route":
                 from friday.router.provider_registry import ProviderRegistry
+
                 providers = [p.name for p in ProviderRegistry().get_online_providers()]
                 resp = {"ok": True, "providers": providers}
             elif cmd_type == "status":
@@ -80,7 +80,6 @@ async def daemon():
 
 
 async def repl():
-    cfg = get_config()
     logger.info("FRIDAY v%s starting...", __version__)
     from friday.interfaces.cli.app import FridayREPL
 
@@ -93,6 +92,7 @@ async def repl():
 def gui():
     logger.info("FRIDAY v%s desktop UI starting...", __version__)
     from friday.interfaces.desktop.app import run_gui
+
     run_gui()
 
 
@@ -112,14 +112,16 @@ async def main():
 async def tray():
     logger.info("FRIDAY v%s desktop tray starting...", __version__)
     from friday.interfaces.desktop.tray import FridayTray
+
     ft = FridayTray()
     loop = asyncio.get_running_loop()
     await loop.run_in_executor(None, ft.run)
 
 
 async def welcome():
-    from friday.memory.user_profile import UserProfile
     from pathlib import Path
+
+    from friday.memory.user_profile import UserProfile
 
     profile = UserProfile()
     p_path = Path("data/user_profile.json")
