@@ -290,30 +290,21 @@ class FridayREPL:
                         self.console.print("[yellow]Usage: /provider refresh <name>[/yellow]")
                     continue
 
-                # Multi-line input detection (code blocks)
+                # Multi-line input detection
                 if raw.startswith("```") or raw.startswith("'''") or raw.endswith(":") or raw.endswith("{"):
                     rest = await self._read_multiline()
                     raw = raw + "\n" + rest
 
-                # Route via orchestrator for intent/context/entity extraction
-                intent = await self.orchestrator.intent_parser.parse(raw)
-                agent = await self.orchestrator.agent_router.route(intent)
-
-                providers = [p.name for p in self.router.get_online_providers()]
-                route_info = providers[0] if providers else "offline"
-                self.console.print(f"[dim]{agent.name} → {route_info}[/dim]")
-
-                # Stream the response with live markdown rendering
-                output, model = await self._stream_response(intent.type, raw, agent.name, agent.name)
-
-                # Post-process for memory/entities (no duplicate LLM call)
-                await self.orchestrator.remember_response(raw, output, agent.name, intent.type)
+                # Process through orchestrator (routes to agent, calls handle(), streams result)
+                self.console.print("[dim]Processing...[/dim]")
+                result = await self.orchestrator.process(raw)
+                output = result.output
                 self._last_output = output
+                self.console.print(Markdown(output))
                 self.history.append({
                     "input": raw,
                     "output": output,
-                    "agent": agent.name,
-                    "model": model,
+                    "agent": result.agent,
                 })
 
                 # Speak response in voice mode
