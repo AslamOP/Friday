@@ -465,6 +465,10 @@ class FridayWindow(QMainWindow):
     def _on_voice_toggle(self, active):
         self._voice_active = active
         if active:
+            if not self._stt.available:
+                self._log("VOICE UNAVAILABLE: INSTALL PYAUDIO + SPEECHRECOGNITION")
+                self._cmd_bar._voice_btn.setChecked(False)
+                return
             self._log("VOICE INPUT ACTIVATED")
             self._voice_task = asyncio.ensure_future(self._voice_loop())
         else:
@@ -484,7 +488,7 @@ class FridayWindow(QMainWindow):
             except asyncio.CancelledError:
                 break
             except Exception:
-                await asyncio.sleep(0.5)
+                break
 
     # -------------------------------------------------------------------
     # Clock

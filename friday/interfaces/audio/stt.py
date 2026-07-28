@@ -10,22 +10,29 @@ class SpeechToText:
         self.energy_threshold = energy_threshold
         self.pause_threshold = pause_threshold
         self._recognizer = None
-
-    def _get_recognizer(self):
-        if self._recognizer is None:
+        self._available = True
+        try:
             import speech_recognition as sr
-            self._recognizer = sr.Recognizer()
-            self._recognizer.energy_threshold = self.energy_threshold
-            self._recognizer.pause_threshold = self.pause_threshold
-        return self._recognizer
+            sr.Recognizer()
+        except Exception:
+            self._available = False
+            logger.info("Speech recognition unavailable (install speechrecognition + PyAudio)")
+
+    @property
+    def available(self) -> bool:
+        return self._available
 
     async def listen(self, timeout: float = 5.0, phrase_time: float = 3.0) -> str:
-        r = self._get_recognizer()
+        if not self._available:
+            return ""
         loop = asyncio.get_running_loop()
 
         def _record():
             import speech_recognition as sr
             with sr.Microphone() as source:
+                r = sr.Recognizer()
+                r.energy_threshold = self.energy_threshold
+                r.pause_threshold = self.pause_threshold
                 r.adjust_for_ambient_noise(source, duration=0.3)
                 logger.info("Listening...")
                 audio = r.listen(source, timeout=timeout, phrase_time_limit=phrase_time)
@@ -39,10 +46,10 @@ class SpeechToText:
         except asyncio.TimeoutError:
             return ""
         except Exception as e:
-            logger.warning("Mic error: %s", e)
+            logger.debug("Mic error: %s", e)
             return ""
 
-        return await self._transcribe(r, audio)
+        return await self._transcribe(audio)
 
     async def listen_background(self, callback: Callable[[str], None], interval: float = 1.0):
         r = self._get_recognizer()
@@ -74,12 +81,14 @@ class SpeechToText:
             except Exception:
                 pass
 
-    async def _transcribe(self, recognizer, audio) -> str:
+    async def _transcribe(self, audio) -> str:
+        import speech_recognition as sr
+        r = sr.Recognizer()
         loop = asyncio.get_running_loop()
 
         def _google():
             try:
-                return recognizer.recognize_google(audio)
+                return r.recognize_google(audio)
             except Exception:
                 return None
 
@@ -89,9 +98,8 @@ class SpeechToText:
 
         def _sphinx():
             try:
-                return recognizer.recognize_sphinx(audio)
+                return r.recognize_sphinx(audio)
             except ImportError:
-                logger.debug("pocketsphinx not installed, no offline fallback")
                 return None
             except Exception:
                 return None
