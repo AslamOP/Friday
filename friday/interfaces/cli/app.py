@@ -13,6 +13,7 @@ from rich.text import Text
 
 from friday import __version__
 from friday.agents.automation_engineer import AutomationEngineerAgent
+from friday.agents.chat import ChatAgent
 from friday.agents.gaming_assistant import GamingAssistantAgent
 from friday.agents.knowledge_manager import KnowledgeManagerAgent
 from friday.agents.mentor import MentorAgent
@@ -50,7 +51,7 @@ class FridayREPL:
         self.orchestrator = get_orchestrator()
         self.router = ProviderRegistry()
         for a in [
-            MentorAgent(), PlannerAgent(), SoftwareEngineerAgent(),
+            ChatAgent(), MentorAgent(), PlannerAgent(), SoftwareEngineerAgent(),
             ResearchScientistAgent(), AutomationEngineerAgent(),
             KnowledgeManagerAgent(), StudyAgent(), GamingAssistantAgent(),
         ]:

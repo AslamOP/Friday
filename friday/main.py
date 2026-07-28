@@ -17,6 +17,7 @@ async def daemon():
 
     agent_classes = []
     for mod_path, cls_name in [
+        ("friday.agents.chat", "ChatAgent"),
         ("friday.agents.mentor", "MentorAgent"),
         ("friday.agents.planner", "PlannerAgent"),
         ("friday.agents.software_engineer", "SoftwareEngineerAgent"),

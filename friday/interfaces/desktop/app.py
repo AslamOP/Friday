@@ -13,6 +13,7 @@ from PyQt6.QtWidgets import (
 )
 
 from friday.agents.automation_engineer import AutomationEngineerAgent
+from friday.agents.chat import ChatAgent
 from friday.agents.gaming_assistant import GamingAssistantAgent
 from friday.agents.knowledge_manager import KnowledgeManagerAgent
 from friday.agents.mentor import MentorAgent
@@ -33,7 +34,7 @@ from .widgets import (
 logger = logging.getLogger("friday.desktop")
 
 _AGENT_ICONS = {
-    "mentor": "🧠", "planner": "📋", "software_engineer": "⚙️",
+    "chat": "💬", "mentor": "🧠", "planner": "📋", "software_engineer": "⚙️",
     "research_scientist": "🔬", "knowledge_manager": "📚",
     "automation_engineer": "🤖", "study": "🎓", "gaming_assistant": "🎮",
 }
@@ -294,6 +295,7 @@ class FridayWindow(QMainWindow):
         try:
             o = get_orchestrator()
             for cls, name in [
+                (ChatAgent, "chat"),
                 (MentorAgent, "mentor"),
                 (PlannerAgent, "planner"),
                 (SoftwareEngineerAgent, "software_engineer"),
