@@ -312,6 +312,8 @@ class ProviderRegistry:
             if r.status_code == 200:
                 data = r.json()
                 content = data["choices"][0]["message"]["content"] or ""
+                if not content:
+                    logger.warning("%s/%s returned 200 with empty content: %s", provider.name, model, json.dumps(data)[:500])
                 return {"model": model, "content": content, "role": "assistant"}
             return {"model": "none", "content": "", "role": "assistant"}
 
