@@ -489,15 +489,18 @@ class FridayWindow(QMainWindow):
 
 def run_gui():
     app = QApplication(sys.argv)
+    import qasync
+
+    loop = qasync.QEventLoop(app)
+    asyncio.set_event_loop(loop)
+
     f = QFont("monospace")
     f.setStyleHint(QFont.StyleHint.Monospace)
     app.setFont(f)
     window = FridayWindow()
     window.show()
 
-    import qasync
-    with qasync.QApplication(app):
-        asyncio.get_event_loop().run_forever()
+    loop.run_forever()
 
 
 if __name__ == "__main__":
