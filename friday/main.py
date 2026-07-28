@@ -143,5 +143,8 @@ async def welcome():
     print()
 
 
-if __name__ == "__main__":
+def _entry():
     asyncio.run(main())
+
+if __name__ == "__main__":
+    _entry()

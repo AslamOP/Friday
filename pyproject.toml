@@ -34,7 +34,7 @@ dev = [
 ]
 
 [project.scripts]
-friday = "friday.main:main"
+friday = "friday.main:_entry"
 
 [tool.setuptools.packages.find]
 include = ["friday*"]
