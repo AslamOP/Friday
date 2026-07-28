@@ -1,11 +1,15 @@
+"""FRIDAY — modular AI assistant backend with composable intelligence primitives."""
+
 from __future__ import annotations
 
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as _pkg_version
+
+from friday.sdk import Jarvis, JarvisSystem, MemoryHandle, SystemBuilder
+
 try:
-    from importlib.metadata import version as _v
-    __version__ = _v("friday")
-except Exception:
-    __version__ = "3.0.0"
+    __version__ = _pkg_version("friday")
+except PackageNotFoundError:  # pragma: no cover — uninstalled source tree
+    __version__ = "0.0.0+unknown"
 
-from friday._sdk import Friday
-
-__all__ = ["Friday", "__version__"]
+__all__ = ["Jarvis", "JarvisSystem", "MemoryHandle", "SystemBuilder", "__version__"]
