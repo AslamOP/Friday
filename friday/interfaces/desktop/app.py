@@ -5,16 +5,11 @@ import subprocess
 import sys
 import threading
 
-from PyQt6.QtCore import QPointF, QRectF, Qt, QTimer
-from PyQt6.QtGui import QBrush, QColor, QFont, QLinearGradient, QPainter, QPainterPath, QPen, QRegion
+from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtGui import QAction, QFont, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
-    QApplication,
-    QHBoxLayout,
-    QMainWindow,
-    QSizeGrip,
-    QStackedWidget,
-    QVBoxLayout,
-    QWidget,
+    QApplication, QHBoxLayout, QLabel, QMainWindow, QSizeGrip,
+    QStackedWidget, QSystemTrayIcon, QVBoxLayout, QWidget,
 )
 
 from friday.agents.automation_engineer import AutomationEngineerAgent
@@ -25,24 +20,23 @@ from friday.agents.planner import PlannerAgent
 from friday.agents.research_scientist import ResearchScientistAgent
 from friday.agents.software_engineer import SoftwareEngineerAgent
 from friday.agents.study import StudyAgent
-from friday.core.ipc import GUI_SOCK, UnixServer, is_running, send_command_sync
+from friday.core.ipc import GUI_SOCK, UnixServer
 from friday.core.orchestrator import get_orchestrator
 from friday.interfaces.audio import SpeechToText
-from friday.tools.system_monitor import SystemMonitor  # noqa: F401
 
 from .widgets import (
-    AgentPanel,
-    CommandBar,
-    HoloSphere,
-    OutputArea,
-    ProfilePanel,
-    SettingsDialog,
-    StatPanel,
-    TitleBar,
-    UpdatePanel,
+    AgentPanel, AnimatedBackground, CommandBar, CoreRings,
+    Gauge, LogPanel, MetricBar, Panel, ProviderPanel, ResponseBox,
+    StatusPill,
 )
 
 logger = logging.getLogger("friday.desktop")
+
+_AGENT_ICONS = {
+    "mentor": "🧠", "planner": "📋", "software_engineer": "⚙️",
+    "research_scientist": "🔬", "knowledge_manager": "📚",
+    "automation_engineer": "🤖", "study": "🎓", "gaming_assistant": "🎮",
+}
 
 
 class FridayWindow(QMainWindow):
@@ -50,58 +44,290 @@ class FridayWindow(QMainWindow):
         super().__init__()
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self.setStyleSheet("""
-            QToolTip {
-                background: rgba(10,10,30,0.9);
-                border: 1px solid rgba(0,200,255,0.3);
-                border-radius: 4px;
-                color: #c0d8f0;
-                padding: 4px 8px;
-                font-family: monospace;
-                font-size: 11px;
-            }
-        """)
 
-        self._monitor = SystemMonitor()
         self._stt = SpeechToText()
         self._voice_active = False
         self._voice_task = None
+        self._pending_submit = ""
 
         self._setup_ui()
         self._resize_grip = QSizeGrip(self)
-        self._resize_grip.setStyleSheet("""
-            QSizeGrip {
-                background: rgba(0,200,255,0.08);
-                border: 1px solid rgba(0,200,255,0.12);
-                border-radius: 3px;
-                width: 10px; height: 10px;
-            }
-            QSizeGrip:hover { background: rgba(0,200,255,0.2); }
-        """)
+        self._position_grip()
 
-        self._start_monitor()
-
-        self.resize(960, 680)
+        self.resize(1100, 720)
         self._center_on_screen()
-        self._update_mask()
+        self._init_backend()
 
-        if is_running(GUI_SOCK):
-            send_command_sync(GUI_SOCK, {"type": "focus"})
-            QApplication.quit()
-            return
+    # -------------------------------------------------------------------
+    # UI setup
+    # -------------------------------------------------------------------
 
-        self._output.append_output("FRIDAY AI OS v" + self._get_version(), "system")
-        self._output.append_output("System initialized. All systems online.", "success")
-        self._output.append_output("Type a command or click the mic for voice.", "info")
+    def _setup_ui(self):
+        central = QWidget()
+        central.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.setCentralWidget(central)
 
-        self._load_profile_data()
-        self._setup_shortcuts()
-        self._setup_tray()
+        self._bg = AnimatedBackground(self.centralWidget())
+        self._bg.lower()
+
+        layout = QVBoxLayout(central)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+
+        # top bar
+        layout.addWidget(self._build_top_bar())
+
+        # main content grid
+        content = QHBoxLayout()
+        content.setContentsMargins(14, 8, 14, 6)
+        content.setSpacing(12)
+
+        content.addLayout(self._build_left_panel(), 2)
+        content.addLayout(self._build_center(), 5)
+        content.addLayout(self._build_right_panel(), 2)
+
+        layout.addLayout(content, 1)
+
+        # bottom bar
+        self._cmd_bar = CommandBar()
+        self._cmd_bar.submitted.connect(self._on_command)
+        self._cmd_bar.voice_toggled.connect(self._on_voice_toggle)
+        layout.addWidget(self._cmd_bar)
+
+        layout.addSpacing(6)
+
+    def _build_top_bar(self):
+        bar = QWidget()
+        bar.setFixedHeight(70)
+        bar.setStyleSheet("background: rgba(0,26,51,0.4); border-bottom: 1px solid rgba(0,229,255,0.2);")
+
+        layout = QHBoxLayout(bar)
+        layout.setContentsMargins(20, 0, 20, 0)
+
+        logo = QLabel("FRIDAY")
+        logo.setStyleSheet("color: #00e5ff; font-family: Rajdhani; font-size: 22px; font-weight: 700; letter-spacing: 4px; background: transparent;")
+        layout.addWidget(logo)
+
+        layout.addStretch()
+
+        pills = QHBoxLayout()
+        pills.setSpacing(8)
+
+        self._online_pill = StatusPill("ONLINE", "#00ff88")
+        pills.addWidget(self._online_pill)
+        self._linked_pill = StatusPill("LINKED", "#00e5ff")
+        pills.addWidget(self._linked_pill)
+        self._zen_pill = StatusPill("ZEN", "#ff6b35")
+        pills.addWidget(self._zen_pill)
+
+        layout.addLayout(pills)
+        layout.addSpacing(20)
+
+        self._clock_lbl = QLabel("00:00:00")
+        self._clock_lbl.setStyleSheet("color: #c0d8ff; font-family: monospace; font-size: 14px; background: transparent; letter-spacing: 2px;")
+        layout.addWidget(self._clock_lbl)
+
+        # clock timer
+        self._clock_timer = QTimer(self)
+        self._clock_timer.timeout.connect(self._update_clock)
+        self._clock_timer.start(1000)
+        self._update_clock()
+
+        # drag support
+        self._top_bar_drag = bar
+        bar.mousePressEvent = self._drag_press
+        bar.mouseMoveEvent = self._drag_move
+        bar.mouseReleaseEvent = self._drag_release
+        self._dragging = False
+        self._drag_pos = None
+
+        return bar
+
+    def _build_left_panel(self):
+        layout = QVBoxLayout()
+        layout.setSpacing(10)
+
+        # gauges
+        gauge_row = QHBoxLayout()
+        gauge_row.setSpacing(4)
+        self._cpu_gauge = Gauge("CPU")
+        gauge_row.addWidget(self._cpu_gauge)
+        self._ram_gauge = Gauge("RAM")
+        gauge_row.addWidget(self._ram_gauge)
+        self._gpu_gauge = Gauge("GPU")
+        gauge_row.addWidget(self._gpu_gauge)
+        layout.addLayout(gauge_row)
+
+        # metrics
+        metrics = Panel("SYSTEM TELEMETRY")
+        self._gpu_metric = MetricBar("GPU LOAD")
+        metrics.add_widget(self._gpu_metric)
+        self._disk_metric = MetricBar("DISK USAGE")
+        metrics.add_widget(self._disk_metric)
+        self._net_metric = MetricBar("NETWORK")
+        metrics.add_widget(self._net_metric)
+        self._temp_metric = MetricBar("CORE TEMP")
+        metrics.add_widget(self._temp_metric)
+        layout.addWidget(metrics, 1)
+
+        # logs
+        logs_panel = Panel("SYSLOG")
+        self._logs = LogPanel()
+        logs_panel.add_widget(self._logs)
+        layout.addWidget(logs_panel, 2)
+
+        return layout
+
+    def _build_center(self):
+        layout = QVBoxLayout()
+        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.setSpacing(16)
+
+        self._core = CoreRings()
+        layout.addWidget(self._core, 0, Qt.AlignmentFlag.AlignCenter)
+
+        self._response = ResponseBox()
+        self._response.setMinimumHeight(120)
+        self._response.setMaximumWidth(600)
+        layout.addWidget(self._response, 0, Qt.AlignmentFlag.AlignCenter)
+
+        return layout
+
+    def _build_right_panel(self):
+        layout = QVBoxLayout()
+        layout.setSpacing(10)
+
+        # agents
+        agent_panel = Panel("ACTIVE AGENTS")
+        self._agent_panel = AgentPanel()
+        agent_panel.add_widget(self._agent_panel)
+        layout.addWidget(agent_panel, 1)
+
+        # separator
+        sep = QLabel()
+        sep.setFixedHeight(1)
+        sep.setStyleSheet("background: rgba(0,229,255,0.1);")
+        layout.addWidget(sep)
+
+        # providers
+        prov_panel = Panel("PROVIDERS")
+        self._prov_panel = ProviderPanel()
+        self._prov_panel.add_provider("ZEN")
+        self._prov_panel.add_provider("OPENROUTER")
+        self._prov_panel.add_provider("OLLAMA")
+        self._prov_panel.add_provider("OPENAI")
+        self._prov_panel.add_provider("ANTHROPIC")
+        self._prov_panel.add_provider("GOOGLE")
+        prov_panel.add_widget(self._prov_panel)
+        layout.addWidget(prov_panel, 0)
+
+        # version
+        self._ver_lbl = QLabel("v--")
+        self._ver_lbl.setStyleSheet("color: #4a6a8a; font-family: monospace; font-size: 9px; background: transparent;")
+        layout.addWidget(self._ver_lbl, 0, Qt.AlignmentFlag.AlignRight)
+
+        layout.addStretch()
+        return layout
+
+    def _position_grip(self):
+        self._resize_grip.move(self.width() - self._resize_grip.width() - 4,
+                                self.height() - self._resize_grip.height() - 4)
+
+    def resizeEvent(self, event):
+        self._position_grip()
+        if hasattr(self, "_bg"):
+            self._bg.setGeometry(self.rect())
+        super().resizeEvent(event)
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        if hasattr(self, "_bg"):
+            self._bg.setGeometry(self.rect())
+            self._bg.raise_()
+            self._bg.lower()
+
+    # -------------------------------------------------------------------
+    # Drag support
+    # -------------------------------------------------------------------
+
+    def _drag_press(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._dragging = True
+            self._drag_pos = event.globalPosition().toPoint()
+            event.accept()
+
+    def _drag_move(self, event):
+        if self._dragging:
+            delta = event.globalPosition().toPoint() - self._drag_pos
+            self.move(self.pos() + delta)
+            self._drag_pos = event.globalPosition().toPoint()
+            event.accept()
+
+    def _drag_release(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._dragging = False
+            event.accept()
+
+    # -------------------------------------------------------------------
+    # Backend init
+    # -------------------------------------------------------------------
+
+    def _init_backend(self):
+        self._log("FRIDAY AI OS INITIALIZING")
+        try:
+            from friday import __version__
+            ver = __version__
+        except ImportError:
+            ver = "1.0.0"
+        self._ver_lbl.setText(f"v{ver}")
+
+        self._log("NEURAL INTERFACE CALIBRATED")
+        self._start_monitor()
         self._setup_ipc()
+        self._setup_tray()
+        self._setup_shortcuts()
         asyncio.ensure_future(self._init_orchestrator())
 
+        self._response.set_text("SYSTEM ONLINE. STANDING BY FOR INPUT...")
+
+    async def _init_orchestrator(self):
+        try:
+            o = get_orchestrator()
+            for cls, name in [
+                (MentorAgent, "mentor"),
+                (PlannerAgent, "planner"),
+                (SoftwareEngineerAgent, "software_engineer"),
+                (ResearchScientistAgent, "research_scientist"),
+                (AutomationEngineerAgent, "automation_engineer"),
+                (KnowledgeManagerAgent, "knowledge_manager"),
+                (StudyAgent, "study"),
+                (GamingAssistantAgent, "gaming_assistant"),
+            ]:
+                agent = cls()
+                o.register_agent(agent)
+                icon = _AGENT_ICONS.get(name, "?")
+                self._agent_panel.add_agent(name, icon)
+
+            await o.initialize()
+            o.subscribe_event("agent:status", self._on_agent_status)
+            self._log("HEURISTIC ENGINES AT 100%")
+            self._response.set_text("ALL SYSTEMS ONLINE. FRIDAY READY.")
+        except Exception as e:
+            logger.warning("Orchestrator init failed: %s", e)
+            self._log("BACKEND UNAVAILABLE")
+
+    def _on_agent_status(self, data: dict):
+        agent = data.get("agent", "")
+        status = data.get("status", "")
+        if agent and status:
+            self._agent_panel.set_status(agent, status)
+
+    # -------------------------------------------------------------------
+    # IPC
+    # -------------------------------------------------------------------
+
     def _setup_ipc(self):
-        async def _handler(reader, writer):
+        async def handler(reader, writer):
             try:
                 data = await reader.readline()
                 cmd = json.loads(data.decode())
@@ -116,251 +342,133 @@ class FridayWindow(QMainWindow):
             finally:
                 writer.close()
 
-        asyncio.ensure_future(UnixServer(GUI_SOCK).start(_handler))
+        asyncio.ensure_future(UnixServer(GUI_SOCK).start(handler))
 
-    async def _init_orchestrator(self):
+    # -------------------------------------------------------------------
+    # Tray
+    # -------------------------------------------------------------------
+
+    def _setup_tray(self):
         try:
-            o = get_orchestrator()
-            for ac in [
-                MentorAgent(), PlannerAgent(), SoftwareEngineerAgent(),
-                ResearchScientistAgent(), AutomationEngineerAgent(),
-                KnowledgeManagerAgent(), StudyAgent(), GamingAssistantAgent(),
-            ]:
-                o.register_agent(ac)
-            await o.initialize()
-            o.subscribe_event("agent:status", self._on_agent_status)
-            o.subscribe_event("agent:start", lambda d: self._output.append_output(f"Agent {d.get('agent', '?')} processing...", "info"))
-            o.subscribe_event("agent:done", lambda d: self._output.append_output(f"Agent {d.get('agent', '?')} completed.", "success" if d.get("success") else "error"))
-            self._output.append_output("Orchestrator ready — all agents online.", "success")
+            from .tray import FridayTray
+            t = threading.Thread(target=FridayTray().run, daemon=True)
+            t.start()
+            self._tray_running = True
         except Exception as e:
-            logger.warning("Orchestrator init failed: %s", e)
-            self._output.append_output("Backend agents unavailable.", "warning")
+            logger.debug("Tray not available: %s", e)
+            self._tray_running = False
 
-    def _on_agent_status(self, data: dict):
-        agent = data.get("agent", "")
-        status = data.get("status", "")
-        if agent and status:
-            self._agent_panel.set_status(agent, status)
+    # -------------------------------------------------------------------
+    # Shortcuts
+    # -------------------------------------------------------------------
 
-    def _get_version(self):
-        try:
-            from friday import __version__
-            return __version__
-        except ImportError:
-            return "1.0.0"
+    def _setup_shortcuts(self):
+        QShortcut(QKeySequence("Ctrl+D"), self).activated.connect(self._toggle_dashboard)
+        QShortcut(QKeySequence("Escape"), self).activated.connect(self.showMinimized)
 
-    def _center_on_screen(self):
-        screen = QApplication.primaryScreen()
-        if screen:
-            center = screen.availableGeometry().center()
-            frame = self.frameGeometry()
-            frame.moveCenter(center)
-            self.move(frame.topLeft())
+    def _toggle_dashboard(self):
+        pass
 
-    def _update_mask(self):
-        path = QPainterPath()
-        path.addRoundedRect(QRectF(self.rect()), 14, 14)
-        self.setMask(QRegion(path.toFillPolygon().toPolygon()))
-
-    def resizeEvent(self, event):  # noqa: N802
-        self._update_mask()
-        if hasattr(self, '_resize_grip'):
-            self._resize_grip.move(
-                self.width() - self._resize_grip.width() - 4,
-                self.height() - self._resize_grip.height() - 4,
-            )
-        self._position_update_panel()
-        super().resizeEvent(event)
-
-    def paintEvent(self, event):  # noqa: N802
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        path = QPainterPath()
-        path.addRoundedRect(QRectF(self.rect()), 14, 14)
-        g = QLinearGradient(QPointF(0, 0), QPointF(0, self.height()))
-        g.setColorAt(0, QColor(12, 12, 30))
-        g.setColorAt(0.5, QColor(8, 8, 22))
-        g.setColorAt(1, QColor(5, 5, 18))
-        painter.fillPath(path, QBrush(g))
-        pen = QPen(QColor(0, 180, 255, 28))
-        pen.setWidth(1)
-        painter.setPen(pen)
-        painter.drawPath(path)
-
-    def _setup_ui(self):
-        central = QWidget()
-        central.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self.setCentralWidget(central)
-        main_layout = QVBoxLayout(central)
-        main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.setSpacing(0)
-
-        self._title_bar = TitleBar(self)
-        self._title_bar.profile_clicked.connect(self._toggle_profile)
-        self._title_bar.settings_clicked.connect(self._show_settings)
-        main_layout.addWidget(self._title_bar)
-
-        # stacked widget: page 0 = dashboard, page 1 = profile
-        self._stack = QStackedWidget()
-        self._stack.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-
-        # -- dashboard page --
-        dash = QWidget()
-        dash.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        dl = QHBoxLayout(dash)
-        dl.setContentsMargins(14, 8, 14, 6)
-        dl.setSpacing(12)
-
-        lc = QVBoxLayout()
-        lc.setSpacing(8)
-        self._cpu_panel = StatPanel("CPU")
-        self._cpu_panel.setMinimumWidth(105)
-        lc.addWidget(self._cpu_panel)
-        self._gpu_panel = StatPanel("GPU")
-        self._gpu_panel.setMinimumWidth(105)
-        lc.addWidget(self._gpu_panel)
-        lc.addStretch()
-        dl.addLayout(lc)
-
-        cc = QVBoxLayout()
-        cc.setSpacing(8)
-        self._holo = HoloSphere()
-        self._holo.setMinimumSize(160, 130)
-        cc.addWidget(self._holo, 1)
-        self._agent_panel = AgentPanel()
-        cc.addWidget(self._agent_panel)
-        dl.addLayout(cc, 1)
-
-        rc = QVBoxLayout()
-        rc.setSpacing(8)
-        self._ram_panel = StatPanel("RAM")
-        self._ram_panel.setMinimumWidth(105)
-        rc.addWidget(self._ram_panel)
-        self._disk_panel = StatPanel("DISK")
-        self._disk_panel.setMinimumWidth(105)
-        rc.addWidget(self._disk_panel)
-        rc.addStretch()
-        dl.addLayout(rc)
-
-        self._stack.addWidget(dash)  # page 0
-
-        # -- profile page --
-        self._profile_panel = ProfilePanel()
-        self._stack.addWidget(self._profile_panel)  # page 1
-
-        main_layout.addWidget(self._stack, 1)
-
-        self._cmd_bar = CommandBar()
-        self._cmd_bar.submitted.connect(self._on_command)
-        self._cmd_bar.voice_toggled.connect(self._on_voice_toggle)
-        main_layout.addWidget(self._cmd_bar)
-
-        self._output = OutputArea()
-        self._output.setMaximumHeight(160)
-        self._output.setMinimumHeight(80)
-        main_layout.addWidget(self._output)
-
-        main_layout.addSpacing(6)
-
-        self._update_panel = UpdatePanel(central)
-        self._position_update_panel()
-
-    def _position_update_panel(self):
-        if hasattr(self, '_update_panel') and self._update_panel:
-            self._update_panel.move(
-                self.width() - self._update_panel.width() - 12,
-                self.height() - self._update_panel.height() - 10,
-            )
+    # -------------------------------------------------------------------
+    # Monitor
+    # -------------------------------------------------------------------
 
     def _start_monitor(self):
-        self._timer = QTimer(self)
-        self._timer.timeout.connect(self._poll_stats)
-        self._timer.start(2200)
-        self._poll_stats()
+        try:
+            from friday.tools.system_monitor import SystemMonitor
+            self._monitor = SystemMonitor()
+            self._timer = QTimer(self)
+            self._timer.timeout.connect(self._poll_stats)
+            self._timer.start(2500)
+            self._poll_stats()
+        except Exception:
+            self._monitor = None
 
     def _poll_stats(self):
         asyncio.ensure_future(self._do_poll())
 
     async def _do_poll(self):
+        if not self._monitor:
+            return
         try:
             result = await self._monitor.collect()
             if result.success and result.metrics:
                 m = result.metrics
-                self._cpu_panel.set_value(m.cpu_percent,
-                    f"{m.cpu_cores}c" + (f" {m.cpu_temp}°C" if m.cpu_temp else ""))
-                self._ram_panel.set_value(m.memory_percent,
-                    f"{m.memory_used_gb:.1f}/{m.memory_total_gb:.1f}")
-                self._disk_panel.set_value(m.disk_percent,
-                    f"{m.disk_used_gb:.1f}/{m.disk_total_gb:.1f}")
+                self._cpu_gauge.set_value(m.cpu_percent)
+                self._ram_gauge.set_value(m.memory_percent)
                 if m.gpu_available:
-                    short = m.gpu_name.split()[-1] if m.gpu_name else "GPU"
-                    self._gpu_panel.set_value(m.gpu_util or 0, f"{short} {m.gpu_util:.0f}%")
+                    self._gpu_gauge.set_value(m.gpu_util or 0)
                 else:
-                    self._gpu_panel.set_value(0, "not detected")
-        except Exception as e:
-            logger.debug("Stats poll error: %s", e)
+                    self._gpu_gauge.set_value(0)
+                self._gpu_metric.set_value(m.gpu_util or 0, m.gpu_name.split()[-1] if m.gpu_name else "")
+                self._disk_metric.set_value(m.disk_percent, f"{m.disk_used_gb:.0f}/{m.disk_total_gb:.0f}GB")
+                self._net_metric.set_value(min(m.network_sent_mb + m.network_recv_mb, 100))
+                if m.cpu_temp:
+                    self._temp_metric.set_value(m.cpu_temp / 100 * 100, f"{m.cpu_temp}°C")
+        except Exception:
+            pass
+
+    # -------------------------------------------------------------------
+    # Command handling
+    # -------------------------------------------------------------------
 
     def _on_command(self, text):
-        self._output.append_output(f"> {text}", "normal")
-        t = text.lower().strip()
+        self._log(f"> {text}")
+        self._response.set_text(f"PROCESSING: {text.upper()}...")
 
+        t = text.lower().strip()
         if t.startswith("open "):
             self._launch_app(t[5:].strip())
         elif t in ("help", "?"):
             self._show_help()
         elif t == "clear":
-            self._output.clear()
+            pass
         elif t == "status":
-            self._output.append_output("All systems online. FRIDAY operational.", "success")
+            self._response.set_text("ALL SYSTEMS ONLINE. FRIDAY OPERATIONAL.")
         else:
             asyncio.ensure_future(self._process_command(text))
 
     async def _process_command(self, text):
         try:
-            from friday.core.orchestrator import get_orchestrator
             o = get_orchestrator()
-            try:
-                intent = await o.intent_parser.parse(text)
-                self._agent_panel.set_status(intent.type, "running")
-            except Exception:
-                pass
             result = await o.process(text)
             if result.success:
-                self._output.append_output(result.output[:600], "success")
-                agent_name = result.agent if hasattr(result, 'agent') else "assistant"
-                self._agent_panel.set_status(agent_name, "done")
+                self._response.set_text(result.output[:600])
+                self._agent_panel.set_status(result.agent, "active")
             else:
-                self._output.append_output(result.output[:600], "error")
-        except Exception:
-            self._output.append_output("Run daemon for full command processing.", "info")
+                self._response.set_text(f"ERROR: {result.output[:300]}")
+        except Exception as e:
+            self._response.set_text(f"ERROR: {e}")
 
     def _launch_app(self, name):
         try:
             subprocess.Popen([name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            self._output.append_output(f"Launched: {name}", "success")
+            self._response.set_text(f"LAUNCHED: {name}")
         except FileNotFoundError:
-            self._output.append_output(f"App '{name}' not found", "error")
-        except Exception as e:
-            self._output.append_output(f"Launch failed: {e}", "error")
+            self._response.set_text(f"APP '{name}' NOT FOUND")
 
     def _show_help(self):
-        for line in [
-            "Available commands:",
+        lines = [
+            "AVAILABLE COMMANDS:",
             "  open <app>   Launch an application",
             "  help / ?     Show this help",
             "  clear        Clear terminal",
             "  status       Show system status",
             "  <question>   Ask FRIDAY anything",
-        ]:
-            self._output.append_output(line, "info")
+        ]
+        self._response.set_text("\n".join(lines))
+
+    # -------------------------------------------------------------------
+    # Voice
+    # -------------------------------------------------------------------
 
     def _on_voice_toggle(self, active):
         self._voice_active = active
         if active:
-            self._output.append_output("Voice input activated. Speak your command.", "system")
+            self._log("VOICE INPUT ACTIVATED")
             self._voice_task = asyncio.ensure_future(self._voice_loop())
         else:
-            self._output.append_output("Voice input deactivated.", "info")
+            self._log("VOICE INPUT DEACTIVATED")
             if self._voice_task:
                 self._voice_task.cancel()
                 self._voice_task = None
@@ -370,27 +478,34 @@ class FridayWindow(QMainWindow):
             try:
                 text = await self._stt.listen(timeout=1.5, phrase_time=4.0)
                 if text and text.strip():
-                    self._output.append_output(f"[voice] {text}", "system")
+                    self._log(f"[VOICE] {text}")
                     self._cmd_bar.set_text(text)
                     self._on_command(text)
             except asyncio.CancelledError:
                 break
-            except Exception as e:
-                logger.debug("Voice loop error: %s", e)
+            except Exception:
                 await asyncio.sleep(0.5)
 
-    def _setup_tray(self):
-        self._tray_running = False
-        try:
-            from .tray import FridayTray
-            tray = FridayTray()
-            t = threading.Thread(target=tray.run, daemon=True)
-            t.start()
-            self._tray_running = True
-        except Exception as e:
-            logger.debug("Tray not available: %s", e)
+    # -------------------------------------------------------------------
+    # Clock
+    # -------------------------------------------------------------------
 
-    def closeEvent(self, event):  # noqa: N802
+    def _update_clock(self):
+        from datetime import datetime
+        self._clock_lbl.setText(datetime.now().strftime("%H:%M:%S"))
+
+    # -------------------------------------------------------------------
+    # Log helper
+    # -------------------------------------------------------------------
+
+    def _log(self, msg: str):
+        self._logs.append(msg)
+
+    # -------------------------------------------------------------------
+    # Close
+    # -------------------------------------------------------------------
+
+    def closeEvent(self, event):
         self._voice_active = False
         if self._voice_task:
             self._voice_task.cancel()
@@ -400,11 +515,9 @@ class FridayWindow(QMainWindow):
                 asyncio.ensure_future(self._save_and_close())
         except RuntimeError:
             pass
-        if hasattr(self, '_tray_running') and self._tray_running:
+        if getattr(self, "_tray_running", False):
             event.ignore()
             self.hide()
-            from .notifications import Notifier
-            asyncio.ensure_future(Notifier().info("FRIDAY minimized to tray"))
         else:
             event.accept()
             QApplication.quit()
@@ -413,78 +526,20 @@ class FridayWindow(QMainWindow):
         try:
             o = get_orchestrator()
             await o.persistence.save_all()
-            logger.info("Memory saved on close")
-        except Exception as e:
-            logger.warning("Save on close failed: %s", e)
-
-    def _toggle_profile(self):
-        if self._stack.currentIndex() == 0:
-            self._stack.setCurrentIndex(1)
-            self._title_bar._profile_btn.setStyleSheet("""
-                QPushButton { background: rgba(0,200,255,0.15); border: none; color: #00d4ff; font-size: 13px; border-radius: 3px; }
-                QPushButton:hover { background: rgba(0,200,255,0.25); color: #00d4ff; }
-            """)
-            self._load_profile_data()
-        else:
-            self._stack.setCurrentIndex(0)
-            self._title_bar._profile_btn.setStyleSheet("""
-                QPushButton { background: transparent; border: none; color: #6b8caa; font-size: 13px; }
-                QPushButton:hover { background: rgba(0,200,255,0.12); color: #00d4ff; }
-            """)
-
-    def _load_profile_data(self):
-        try:
-            from friday.memory.user_profile import UserProfile
-            profile = UserProfile().get_profile()
-            self._profile_panel.set_profile(profile)
         except Exception:
-            self._profile_panel.set_profile({})
+            pass
 
-        try:
-            from friday.memory.project_memory import ProjectMemory
-            projects = ProjectMemory().list_projects()
-            self._profile_panel.set_projects(projects)
-        except Exception:
-            self._profile_panel.set_projects([])
+    # -------------------------------------------------------------------
+    # Center
+    # -------------------------------------------------------------------
 
-        try:
-            import json
-            from pathlib import Path
-            cfg_path = Path("~/.config/friday/study_agent.json").expanduser()
-            if cfg_path.exists():
-                cfg = json.loads(cfg_path.read_text())
-                self._profile_panel.set_study(
-                    cfg.get("folder", ""),
-                    cfg.get("online", False),
-                )
-            else:
-                self._profile_panel.set_study("", False)
-        except Exception:
-            self._profile_panel.set_study("", False)
-
-    def _show_settings(self):
-        if not hasattr(self, '_settings_dialog') or self._settings_dialog is None:
-            self._settings_dialog = SettingsDialog(self)
-        self._settings_dialog.move(
-            self.x() + (self.width() - self._settings_dialog.width()) // 2,
-            self.y() + (self.height() - self._settings_dialog.height()) // 2,
-        )
-        self._settings_dialog.show()
-        self._settings_dialog.raise_()
-
-    def _setup_shortcuts(self):
-        from PyQt6.QtGui import QKeySequence, QShortcut
-
-        QShortcut(QKeySequence("Ctrl+K"), self).activated.connect(self._output.clear)
-        QShortcut(QKeySequence("Ctrl+P"), self).activated.connect(self._toggle_profile)
-        QShortcut(QKeySequence("Ctrl+,"), self).activated.connect(self._show_settings)
-        QShortcut(QKeySequence("Escape"), self).activated.connect(self._minimize_window)
-
-    def _minimize_window(self):
-        if self._stack.currentIndex() == 1:
-            self._toggle_profile()
-        else:
-            self.showMinimized()
+    def _center_on_screen(self):
+        screen = QApplication.primaryScreen()
+        if screen:
+            center = screen.availableGeometry().center()
+            frame = self.frameGeometry()
+            frame.moveCenter(center)
+            self.move(frame.topLeft())
 
 
 def run_gui():
@@ -494,7 +549,7 @@ def run_gui():
     loop = qasync.QEventLoop(app)
     asyncio.set_event_loop(loop)
 
-    f = QFont("monospace")
+    f = QFont("JetBrains Mono", 10)
     f.setStyleHint(QFont.StyleHint.Monospace)
     app.setFont(f)
     window = FridayWindow()
