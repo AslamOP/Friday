@@ -59,8 +59,6 @@ _DEFAULTS: list[ProviderConfig] = [
 
 class ProviderRegistry:
     _instance = None
-    _last_check: float = 0
-    _CHECK_INTERVAL = 30  # seconds between full provider checks
 
     def __new__(cls, *args, **kwargs):
         if cls._instance is None:
@@ -233,11 +231,6 @@ class ProviderRegistry:
         return p.status
 
     async def check_all(self):
-        import time
-        now = time.monotonic()
-        if now - self.__class__._last_check < self.__class__._CHECK_INTERVAL:
-            return
-        self.__class__._last_check = now
         for p in self.list_providers():
             await self.check_status(p.name)
 
@@ -247,21 +240,31 @@ class ProviderRegistry:
 
     async def route(self, task_type: str, prompt: str, system_prompt: str = "") -> dict[str, Any]:
         await self.check_all()
+        tried = False
         for p in self.get_online_providers():
-            logger.info("Trying %s (%s)", p.name, p.type)
-            result = await self._call(p, task_type, prompt, system_prompt)
-            if result.get("model") != "none" and result.get("content"):
-                return result
+            for model in p.models or ["gpt-3.5-turbo"]:
+                tried = True
+                logger.info("Trying %s with %s", p.name, model)
+                result = await self._call(p, task_type, prompt, system_prompt, model_override=model)
+                if result.get("model") != "none" and result.get("content"):
+                    return result
+                if result.get("model") != "none":
+                    logger.warning("%s returned empty content for model %s", p.name, model)
+        if not tried:
+            return {"model": "none",
+                    "content": "No provider available. Set an API key with: /provider key <name> <key>, or connect a local Ollama instance.",
+                    "role": "assistant"}
         return {"model": "none", "content": "No provider available", "role": "assistant"}
 
     async def route_stream(self, task_type: str, prompt: str, system_prompt: str = ""):
         await self.check_all()
         for p in self.get_online_providers():
-            logger.info("Trying stream %s (%s)", p.name, p.type)
-            async for chunk in self._call_stream(p, task_type, prompt, system_prompt):
-                yield chunk
-                if chunk.get("done"):
-                    return
+            for model in p.models or ["gpt-3.5-turbo"]:
+                logger.info("Trying stream %s with %s", p.name, model)
+                async for chunk in self._call_stream(p, task_type, prompt, system_prompt, model_override=model):
+                    yield chunk
+                    if chunk.get("done"):
+                        return
         yield {"model": "none", "content": "", "done": True}
 
     def _api_url(self, provider: ProviderConfig) -> str:
@@ -271,17 +274,19 @@ class ProviderRegistry:
         return base + "/chat/completions"
 
     async def _call(self, provider: ProviderConfig, task_type: str,
-                    prompt: str, system_prompt: str) -> dict[str, Any]:
+                    prompt: str, system_prompt: str,
+                    model_override: str | None = None) -> dict[str, Any]:
         try:
-            return await self._call_openai_compat(provider, prompt, system_prompt)
+            return await self._call_openai_compat(provider, prompt, system_prompt, model_override)
         except Exception as e:
             logger.warning("Provider %s failed: %s", provider.name, e)
             return {"model": "none", "content": "", "role": "assistant"}
 
     async def _call_stream(self, provider: ProviderConfig, task_type: str,
-                           prompt: str, system_prompt: str):
+                           prompt: str, system_prompt: str,
+                           model_override: str | None = None):
         try:
-            async for chunk in self._call_openai_compat_stream(provider, prompt, system_prompt):
+            async for chunk in self._call_openai_compat_stream(provider, prompt, system_prompt, model_override):
                 yield chunk
                 if chunk.get("done"):
                     return
@@ -290,13 +295,14 @@ class ProviderRegistry:
             yield {"model": "none", "content": "", "done": True}
 
     async def _call_openai_compat(self, provider: ProviderConfig,
-                                  prompt: str, system_prompt: str) -> dict[str, Any]:
+                                  prompt: str, system_prompt: str,
+                                  model_override: str | None = None) -> dict[str, Any]:
         import httpx
         messages = []
         if system_prompt:
             messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": prompt})
-        model = provider.models[0] if provider.models else "gpt-3.5-turbo"
+        model = model_override or (provider.models[0] if provider.models else "gpt-3.5-turbo")
         url = self._api_url(provider)
         headers = {"Content-Type": "application/json"}
         if provider.api_key:
@@ -305,18 +311,19 @@ class ProviderRegistry:
             r = await c.post(url, json={"model": model, "messages": messages}, headers=headers)
             if r.status_code == 200:
                 data = r.json()
-                content = data["choices"][0]["message"]["content"]
+                content = data["choices"][0]["message"]["content"] or ""
                 return {"model": model, "content": content, "role": "assistant"}
             return {"model": "none", "content": "", "role": "assistant"}
 
     async def _call_openai_compat_stream(self, provider: ProviderConfig,
-                                          prompt: str, system_prompt: str):
+                                          prompt: str, system_prompt: str,
+                                          model_override: str | None = None):
         import httpx
         messages = []
         if system_prompt:
             messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": prompt})
-        model = provider.models[0] if provider.models else "gpt-3.5-turbo"
+        model = model_override or (provider.models[0] if provider.models else "gpt-3.5-turbo")
         url = self._api_url(provider)
         headers = {"Content-Type": "application/json"}
         if provider.api_key:
