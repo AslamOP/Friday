@@ -1,5 +1,7 @@
+import collections
 import json
 import logging
+import re
 from pathlib import Path
 from typing import Any
 
@@ -90,49 +92,105 @@ class SelfImprovement:
         return any(w in low for w in praise_words)
 
     # ------------------------------------------------------------------
-    # Learn lessons from interactions
+    # Learn lessons from interactions using NLP
     # ------------------------------------------------------------------
 
-    async def reflect(self, recent_n: int = 20) -> list[str]:
+    @staticmethod
+    def _ngrams(tokens: list[str], n: int) -> list[tuple[str, ...]]:
+        return list(zip(*[tokens[i:] for i in range(n)]))
+
+    def _tokenize(self, text: str) -> list[str]:
+        return re.findall(r"[a-z0-9]+", text.lower())
+
+    def reflect(self, recent_n: int = 20) -> list[str]:
         recent = self._interactions[-recent_n:]
         if not recent:
             return []
 
-        failed = [i for i in recent if not i["success"]]
-        if not failed:
+        # split into successful vs failed
+        good = [i for i in recent if i.get("success", True)]
+        bad = [i for i in recent if not i.get("success", True)]
+
+        if not bad:
             return []
 
-        from friday.router.provider_registry import ProviderRegistry
+        # tokenize inputs
+        good_tokens = []
+        for i in good:
+            good_tokens.extend(self._tokenize(i["input"]))
+        bad_tokens = []
+        for i in bad:
+            bad_tokens.extend(self._tokenize(i["input"]))
 
-        prompt = (
-            "Analyze these failed FRIDAY AI interactions. For each, identify what went wrong "
-            "and write ONE concrete lesson for the AI to follow in future.\n"
-            "Return a JSON array of strings, each being a lesson like:\n"
-            '"When user asks about X, always provide Y first" or "Never assume Z without asking"\n\n'
-            + "\n".join(f"User: {i['input']}\nFRIDAY: {i['output']}" for i in failed[-5:])
-        )
+        # count unigrams and bigrams
+        good_unigrams = collections.Counter(good_tokens)
+        bad_unigrams = collections.Counter(bad_tokens)
+        good_bigrams = collections.Counter(self._ngrams(good_tokens, 2))
+        bad_bigrams = collections.Counter(self._ngrams(bad_tokens, 2))
 
-        r = await ProviderRegistry().route("self_improve", prompt,
-            "You are a strict quality auditor. Identify specific, actionable improvements.")
-        content = r.get("content", "[]")
-        if content.startswith("```"):
-            content = content.split("\n", 1)[-1].rsplit("```", 1)[0]
-        try:
-            lessons = json.loads(content)
-            if isinstance(lessons, list):
-                for lesson in lessons:
-                    if isinstance(lesson, str) and len(lesson) > 10:
-                        if not any(l["lesson"] == lesson for l in self._lessons):
-                            self._lessons.append({
-                                "lesson": lesson,
-                                "timestamp": __import__("time").time(),
-                                "applied": False,
-                            })
-                self._save("lessons.json", self._lessons)
-                return lessons
-        except Exception:
-            pass
-        return []
+        # find tokens over-represented in failures (discounted by good frequency)
+        def score(tok, count):
+            g = good_unigrams.get(tok, 0) + 1
+            return count / g
+
+        top_failure_terms = sorted(bad_unigrams.items(), key=lambda x: score(x[0], x[1]), reverse=True)[:8]
+
+        # generate lessons from patterns
+        lessons = []
+
+        # lesson 1: agent-specific patterns
+        agent_failures = collections.Counter(i["agent"] for i in bad if i.get("agent"))
+        if agent_failures:
+            worst_agent = agent_failures.most_common(1)[0]
+            lessons.append(f"Agent '{worst_agent[0]}' has {worst_agent[1]} failures — review its prompts and capabilities")
+
+        # lesson 2: topic-based patterns from failure bigrams
+        if bad_bigrams:
+            top_bigram = bad_bigrams.most_common(1)[0]
+            term1, term2 = top_bigram[0]
+            if top_bigram[1] >= 2:
+                lessons.append(f"Users mentioning '{term1} {term2}' often get poor responses — prepare better handling")
+
+        # lesson 3: contrastive — what makes failures different
+        distinctive = []
+        for tok, count in bad_unigrams.most_common(20):
+            g = good_unigrams.get(tok, 0)
+            if count > g * 2 and count >= 2:
+                distinctive.append(tok)
+        if distinctive:
+            examples = ", ".join(distinctive[:5])
+            lessons.append(f"Terms like '{examples}' correlate with failed interactions — adjust responses when these appear")
+
+        # lesson 4: if users explicitly correct, extract topic
+        corrections = [i for i in bad if self.detect_correction(i["input"])]
+        if corrections:
+            topics = set()
+            for c in corrections:
+                inp = c["input"].lower()
+                for w in ("wrong", "incorrect", "no", "not", "actually"):
+                    if w in inp:
+                        after = inp.split(w, 1)[-1].strip().split()[:5]
+                        topics.add(" ".join(after))
+            if topics:
+                topic_str = "|".join(list(topics)[:3])
+                lessons.append(f"When user says '{topic_str}' is wrong, verify before responding confidently")
+
+        # de-duplicate and save
+        new_lessons = []
+        for lesson in lessons:
+            if len(lesson) > 10 and not any(l["lesson"] == lesson for l in self._lessons):
+                self._lessons.append({
+                    "lesson": lesson,
+                    "timestamp": __import__("time").time(),
+                    "applied": False,
+                })
+                new_lessons.append(lesson)
+
+        if new_lessons:
+            self._save("lessons.json", self._lessons)
+            logger.info("Extracted %d lessons via NLP", len(new_lessons))
+
+        return new_lessons
 
     # ------------------------------------------------------------------
     # Get accumulated lessons for use in system prompts

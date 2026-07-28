@@ -280,7 +280,7 @@ class FridayREPL:
                     continue
 
                 if raw.lower() == "/learn":
-                    lessons = await self.orchestrator.self_improve.reflect()
+                    lessons = self.orchestrator.self_improve.reflect()
                     if lessons:
                         self.console.print("[green]Reflected and learned:[/green]")
                         for l in lessons:
