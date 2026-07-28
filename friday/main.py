@@ -97,9 +97,7 @@ def gui():
 
 
 async def main():
-    if "--gui" in sys.argv:
-        gui()
-    elif "--daemon" in sys.argv or "-d" in sys.argv:
+    if "--daemon" in sys.argv or "-d" in sys.argv:
         await daemon()
     elif "--tray" in sys.argv:
         await tray()
@@ -144,7 +142,10 @@ async def welcome():
 
 
 def _entry():
-    asyncio.run(main())
+    if "--gui" in sys.argv:
+        gui()
+    else:
+        asyncio.run(main())
 
 if __name__ == "__main__":
     _entry()
