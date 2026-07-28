@@ -16,9 +16,14 @@ class TaskDelegator:
         self._router = router
         self._intent = IntentParser()
         self._llm = ProviderRegistry()
-    async def plan(self, user_input: str) -> list[dict[str, str]]:
+    async def plan(self, user_input: str, pre_parsed: Intent | None = None) -> list[dict[str, str]]:
+        intent = pre_parsed or await self._intent.parse(user_input)
+        if intent.type in ("chat",):
+            return []
         r = await self._llm.route("plan", _PROMPT.format(input=user_input))
         c = r.get("content", "[]").strip()
+        if not c or c == "[]":
+            return []
         if c.startswith("```"):
             c = c.split("\n", 1)[-1].rsplit("```", 1)[0]
         try:
@@ -28,7 +33,6 @@ class TaskDelegator:
                 return st
         except Exception:
             logger.warning("Failed to parse subtask JSON, falling back to single agent")
-        intent = await self._intent.parse(user_input)
         return [{"agent": intent.type, "input": user_input}] if intent.type not in ("chat", "gaming", "challenge") else []
     async def dispatch(self, subtasks: list[dict], context: Context) -> list[tuple[dict, Result]]:
         async def run(st):

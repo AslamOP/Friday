@@ -7,7 +7,11 @@ logger = logging.getLogger("friday.agent_router")
 
 class _Default(BaseAgent):
     name = "default"
-    async def handle(self, task, context): return Result(success=True, output=f"No specialized agent for '{context.user_input}'", agent=self.name)
+    async def handle(self, task, context):
+        text = context.user_input.strip() if context and context.user_input else ""
+        if text.lower() in ("hi", "hii", "hello", "hey", "yo", "sup", "good morning", "good evening", "gm", "gn"):
+            return Result(success=True, output=f"Hello! FRIDAI OS is online. How can I help you?", agent=self.name)
+        return Result(success=True, output=f"Hello! I'm FRIDAY AI OS. I didn't recognize a specific task in your request. Try asking me to research, code, plan, or study something.", agent=self.name)
     async def can_handle(self, intent): return 0.0
 
 class AgentRouter:

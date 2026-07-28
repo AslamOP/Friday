@@ -57,7 +57,7 @@ class Orchestrator:
         self.publish_event("agent:start", {"agent": intent.type, "input": user_input})
 
         if self._delegator:
-            subtasks = await self._delegator.plan(user_input)
+            subtasks = await self._delegator.plan(user_input, pre_parsed=intent)
             if len(subtasks) > 1:
                 logger.info("Delegating %d subtasks", len(subtasks))
                 results = await self._delegator.dispatch(subtasks, context)
