@@ -1,297 +1,67 @@
-# FRIDAY v2.9.0
+# FRIDAY AI OS v3
 
-> **A Personal AI Operating System.**
->
-> Not a chatbot. Not a frontend. An intelligent system that reasons, plans, remembers, chooses tools, and acts on behalf of the user.
-> 
-> Inspired by JARVIS. Built for real work.
+A JARVIS-class personal AI assistant, rebuilt from the ground up inspired by [OpenJarvis](https://github.com/open-jarvis/OpenJarvis).
 
----
+## Install
 
-## Quick Install
-
-### 1. pipx (recommended — Arch Linux)
 ```bash
-pipx install 'friday[gui] @ git+https://github.com/AslamOP/Friday.git'
-friday              # CLI REPL (works immediately — Zen free tier active)
-friday --gui        # Desktop GUI
-```
-
-To upgrade:
-```bash
-pipx upgrade --force friday 2>/dev/null || pipx install --force 'friday[gui] @ git+https://github.com/AslamOP/Friday.git'
-```
-
-Install extras:
-```bash
-pipx install 'friday[all] @ git+https://github.com/AslamOP/Friday.git'   # GUI + voice
-pipx install 'friday[voice] @ git+https://github.com/AslamOP/Friday.git' # voice only (no GUI)
-```
-
-### 2. Clone + dev install
-```bash
-git clone https://github.com/AslamOP/Friday.git
-cd Friday
-python -m venv .venv
-source .venv/bin/activate
-pip install -e .[dev]
+pipx install --force 'friday[all] @ git+https://github.com/AslamOP/Friday.git'
 friday
 ```
 
----
-
-### Platform-specific notes
-
-**Arch Linux** — (pipx is already the default package manager for Python apps)
-```bash
-# Core (CLI only):
-pipx install git+https://github.com/AslamOP/Friday.git
-
-# With GUI:
-pipx install 'friday[gui] @ git+https://github.com/AslamOP/Friday.git'
-
-# With voice (needs system PyAudio):
-sudo pacman -S python-pyaudio
-pipx install 'friday[voice] @ git+https://github.com/AslamOP/Friday.git'
-
-# Everything:
-sudo pacman -S python-pyaudio
-pipx install 'friday[all] @ git+https://github.com/AslamOP/Friday.git'
-```
-
-**Debian / Ubuntu**
-```bash
-sudo apt update && sudo apt install -y python3 python3-pip python3-venv python3-pyaudio
-pip install 'friday[all] @ git+https://github.com/AslamOP/Friday.git'
-```
-
-**macOS**
-```bash
-brew install python@3.11 portaudio
-pip install 'friday[all] @ git+https://github.com/AslamOP/Friday.git'
-```
-
-**Windows (WSL2)**
-```powershell
-wsl --install -d Ubuntu
-# In WSL:
-sudo apt update && sudo apt install -y python3 python3-pip python3-venv
-pip install 'friday[all] @ git+https://github.com/AslamOP/Friday.git'
-```
-
-### After install
-```bash
-friday                    # CLI REPL
-friday --gui              # Desktop GUI (needs PyQt6: pipx install 'friday[gui]@...')
-friday --daemon           # Background daemon with IPC
-```
-
----
-
-## What FRIDAY Is
-
-FRIDAY is a **local-first, modular AI operating system** that orchestrates language models, specialized agents, tools, memory, and planning through a unified intelligence layer.
-
-The interface is just a window into the system. The real product is the brain underneath — a collection of autonomous agents working together.
-
-You do not interact with a language model. You interact with an intelligent assistant that understands context, challenges your thinking, and decides how to help.
-
----
-
-## What FRIDAY Is Not
-
-- Not ChatGPT
-- Not Claude
-- Not Open WebUI or LibreChat
-- Not another LLM frontend
-- Not a chatbot with extra features
-
-Those solve "chat." FRIDAY solves **personal intelligence**.
-
----
-
-## Core Philosophy
+## Usage
 
 ```
-User
-  ↓
-Orchestrator (Intent + Context)
-  ↓
-Agent Router
-  ↓
-Selected Agent(s)
-  ↓
-Memory + Tools + Model Router
-  ↓
-OmniRoute → Best Model
-  ↓
-Execution + Response
+friday              CLI mode
+friday --gui        Desktop GUI mode
 ```
 
-The language model is one component of a larger system. FRIDAY thinks before answering. Agents act before being asked.
+### Commands
 
----
+| Command | Description |
+|---------|-------------|
+| `<ask anything>` | Natural conversation |
+| `/research <q>` | Deep research with web search |
+| `/code <q>` | Software engineering |
+| `/study <q>` | Study mentor |
+| `/plan <q>` | Project planning |
+| `/agents` | List agents |
+| `/status` | System state |
+| `/history` | Conversation history |
+| `/learn` | Self-reflect & extract lessons |
+| `/feedback <1-5>` | Rate last response |
+| `/clear` | Clear screen |
+| `/help` | Show this help |
 
-## The Agents
+### GUI Shortcuts
 
-| Agent | Role | Trigger |
-|-------|------|---------|
-| **Mentor** | Challenges ideas, finds flaws, suggests risks | User presents idea, asks for opinion, or FRIDAY detects low-confidence plan |
-| **Planner** | Creates timelines, tracks deadlines, monitors progress | Complex multi-step request, scheduling, project planning |
-| **Software Engineer** | Writes code, debugs, tests, uses Cursor IDE | "Build...", "Fix...", "Refactor...", "Add feature..." |
-| **Research Scientist** | Reads papers, synthesizes, finds gaps, writes reports | "Research...", "Compare...", "Read these papers..." |
-| **CAD Engineer** | SolidWorks, ANSYS, MATLAB scripts, optimization | "Design...", "Simulate...", "Optimize..." |
-| **Automation Engineer** | Scripts, cron, monitoring, background tasks | "Automate...", "Watch...", "Schedule..." |
-| **Knowledge Manager** | Indexes files, answers from personal knowledge | Background (always), or "What do I know about..." |
-| **Study Agent** | Offline-first folder-based learning, study guides | "Study...", "Set folder...", "Generate guide..." |
-| **Gaming Assistant** | Performance monitoring, walkthroughs, optimizations | Game detected, "Help with...", performance drops |
+| Key | Action |
+|-----|--------|
+| Ctrl+H | Toggle help |
+| Ctrl+Q | Quit |
+| Escape | Close overlay / minimize |
+| Up/Down | Command history |
 
-Every agent has:
-- Its own memory slice
-- Its own tool set
-- Its own model preference via OmniRoute
-- The ability to delegate to other agents
-
----
-
-## Provider System
-
-FRIDAY works out of the box with **zero configuration** using Zen API's free tier. Add your own providers anytime.
-
-**Default providers shipped:**
-
-| Provider | Type | Works OOTB | Activate |
-|----------|------|------------|----------|
-| Zen | Cloud | ✅ Free, no key | Automatic |
-| OpenRouter | Cloud | If key in `.env` | `/provider key openrouter sk-...` |
-| Ollama | Local | If ollama is running | Start `ollama serve` |
-| OpenAI | Cloud | Needs key | `/provider key openai sk-...` |
-| Anthropic | Cloud | Needs key | `/provider key anthropic sk-...` |
-| Google Gemini | Cloud | Needs key | `/provider key google ...` |
-| GitHub Copilot | Cloud | Needs token | `/provider key github-copilot ...` |
-
-**Provider commands in REPL:**
+## Architecture
 
 ```
-/providers                    List all providers and their status
-/provider key <name> <key>    Set API key (auto-fetches models)
-/provider add <name> <type> <endpoint>   Add custom provider
-/provider refresh <name>      Re-check status + fetch models
-/provider remove <name>       Remove user-added provider
+friday/
+├── core/          # Agent base, Tool base, Router, Orchestrator, Memory, MCP, Learning, Config
+├── agents/        # Chat, Research, Code, Study, Planner, Gaming
+├── tools/         # Web search, Shell, File ops, Calculator, Code interpreter, Git, Think
+├── interfaces/    # CLI, Desktop (PyQt6), Voice (STT/TTS)
+├── presets/       # TOML config presets
+├── personas/      # Personality definitions
+└── router/        # Provider registry (Zen, Ollama)
 ```
 
-Routing auto-selects the first online provider by priority: Zen → OpenRouter → Ollama → OpenAI → Anthropic → Google → GitHub Copilot. If one fails, the next is tried automatically.
+### Key features
 
----
-
-## Memory
-
-FRIDAY remembers:
-- Projects and their contexts
-- Conversations (not just chat history — intent, decisions, outcomes)
-- Coding style, preferred patterns, tech stack
-- Research interests, paper library, citation style
-- Academic subjects, weak topics, PYQ patterns
-- Personal preferences, goals, habits
-- Long-term learnings (improves over time)
-
-Memory is a **knowledge graph** — entities, relations, projects — not just a database.
-
----
-
-## Tools
-
-FRIDAY can use tools when needed. The user does not manually invoke them. FRIDAY decides.
-
-- Terminal (safe shell with blocklist + timeout)
-- Browser (Playwright automation)
-- Filesystem (read/write/organize)
-- Code Editor (Cursor IDE integration)
-- Git (commit, branch, diff, push)
-- Docker (container management)
-- System Monitor (CPU/GPU/RAM alerts)
-- Steam / Discord / OBS APIs
-- PDF Reader + OCR
-- Camera / Clipboard / Notifications
-
----
-
-## User Experience
-
-The interface should feel like JARVIS — calm, futuristic, intentional. Blue holographic aesthetic.
-
-Not flashy. Not cluttered. Minimal. Elegant. Professional.
-
-The user opens FRIDAY and sees:
-- System status (CPU, RAM, GPU, network)
-- Holographic core (animated rings, scanning arc)
-- Active agents (which are online, which are working)
-- Recent activity log
-- Command interface (type or speak)
-
-Then: **"How can I help?"**
-
-The interface is the window into FRIDAY. It is not the product itself.
-
----
-
-## Interfaces
-
-- **CLI** — Primary interface. Always available.
-- **Desktop GUI** — Frameless PyQt6 window with holographic display, live system stats, agent panel, voice input, editable profile, provider settings. Launch with `friday --gui`.
-- **Voice** — Speech-to-text (whisper), TTS (piper). Wake word support.
-- **System Tray** — Quick actions: Open GUI, Open REPL, Check Status, Refresh Providers.
-- **Cursor Plugin** — FRIDAY inside your IDE.
-- **Web Dashboard** — Optional. For monitoring and advanced settings.
-
----
-
-Or as a systemd user service (after clone + setup):
-```bash
-systemctl --user enable friday
-systemctl --user start friday
-```
-
----
-
-## Environment Variables
-
-```bash
-# OpenRouter (cloud inference routing)
-OPENROUTER_API_KEY=sk-or-v1-xxxxxxxx
-
-# Ollama (local inference)
-OLLAMA_URL=http://127.0.0.1:11434
-
-# Server
-FRIDAY_PORT=8000
-FRONTEND_URL=http://localhost:5173
-DATABASE_URL=sqlite+aiosqlite:///./friday.db
-
-# Optional integrations
-CURSOR_PATH=/usr/bin/cursor
-STEAM_API_KEY=xxx
-DISCORD_BOT_TOKEN=xxx
-```
-
----
-
-## Development Principles
-
-1. **Agent-first, not chat-first.** Every feature must fit the agent architecture.
-2. **Headless core.** The brain runs as a service. UI is optional.
-3. **Proactive by default.** FRIDAY should alert, suggest, act without being asked.
-4. **Mentor challenges.** FRIDAY should disagree when the user is wrong.
-5. **One file at a time.** Modify, review, confirm, then proceed.
-6. **Preserve existing functionality.** Never break what works.
-7. **Never sacrifice architecture for convenience.** No shortcuts.
-8. **Think long-term.** Will this design hold in 6 months? 2 years?
-
----
-
-## License
-
-MIT — Build your own intelligence.
-
-> *"The future is already here — it's just not evenly distributed."*
-> **— William Gibson**
+- **MCP-ready**: Model Context Protocol support for tool interoperability
+- **Tool system**: Extensible tool base with OpenAI function-calling schema
+- **Intent router**: NLP-based agent routing with scoring
+- **Memory**: JSONL-persisted conversation history
+- **Learning**: Trace-based self-improvement with lesson extraction
+- **Config presets**: TOML-based presets for different use cases
+- **Personas**: Separate personality definitions
+- **Multiple LLM providers**: Zen free tier, Ollama local

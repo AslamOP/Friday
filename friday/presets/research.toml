@@ -1,0 +1,16 @@
+[general]
+name = "research"
+description = "Deep research configuration"
+
+[agent]
+default = "research"
+
+[providers.zen]
+type = "openai"
+api_base = "https://api.zenmarket.ai/v1"
+api_key = ""
+enabled = true
+
+[tools]
+web_search = true
+web_fetch = true

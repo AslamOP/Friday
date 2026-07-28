@@ -4,42 +4,27 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "friday"
-version = "2.9.0"
-description = "FRIDAY AI OS — Autonomous AI assistant for Arch Linux"
+version = "3.0.0"
+description = "FRIDAY AI OS — JARVIS-class Personal AI Assistant"
 requires-python = ">=3.11"
 dependencies = [
-    "pydantic>=2.0",
-    "pydantic-settings>=2.0",
     "httpx>=0.25",
-    "aiosqlite>=0.19",
     "rich>=13.0",
     "beautifulsoup4>=4.12",
+    "pydantic>=2.0",
     "psutil>=6.0",
-    "playwright>=1.40",
-    "qasync>=0.27",
-    "pystray>=0.19",
-    "pillow>=10.0",
 ]
 
 [project.optional-dependencies]
-gui = [
-    "PyQt6>=6.5",
-]
+gui = ["PyQt6>=6.5"]
 voice = [
     "SpeechRecognition>=3.10",
-    "pocketsphinx>=5.0",
-    "pyttsx3>=2.90",
+    "pyaudio",
     "edge-tts>=6.0",
+    "pyttsx3>=2.90",
 ]
-all = [
-    "friday[gui,voice]",
-]
-dev = [
-    "pytest>=8.0",
-    "pytest-asyncio>=0.23",
-    "ruff>=0.5.0",
-    "pre-commit>=3.0",
-]
+all = ["friday[gui,voice]"]
+dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "ruff>=0.5.0"]
 
 [project.scripts]
 friday = "friday.main:_entry"

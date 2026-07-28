@@ -1,85 +1,52 @@
-import logging
-import re
-from dataclasses import dataclass, field
-
+from __future__ import annotations
 import httpx
 from bs4 import BeautifulSoup
+from friday.core.tool import Tool
 
-logger = logging.getLogger("friday.web_search")
-_USER = "Mozilla/5.0 (X11; Linux x86_64) FRIDAY/2.6"
-_DDG = "https://html.duckduckgo.com/html"
-
-
-@dataclass
-class SearchResult:
-    title: str
-    url: str
-    snippet: str = ""
-    content: str = ""
-
-
-@dataclass
-class SearchResponse:
-    results: list[SearchResult] = field(default_factory=list)
-    error: str = ""
-
-
-_clean = re.compile(r"<[^>]+>")
-
-
-def _strip(text: str) -> str:
-    return _clean.sub("", text).strip()
-
-
-class WebSearchTool:
-    async def search(self, query: str, max_results: int = 5) -> SearchResponse:
+class WebSearch(Tool):
+    name = "web_search"
+    description = "Search the web for current information"
+    parameters = {
+        "type": "object",
+        "properties": {
+            "query": {"type": "string", "description": "Search query"},
+            "count": {"type": "integer", "description": "Number of results", "default": 5},
+        },
+        "required": ["query"],
+    }
+    
+    def run(self, query: str, count: int = 5) -> str:
         try:
-            r = await httpx.AsyncClient(timeout=15.0, follow_redirects=True).post(
-                _DDG, data={"q": query}, headers={"User-Agent": _USER}
-            )
-            r.raise_for_status()
-            return self._parse(r.text, max_results)
+            resp = httpx.get("https://html.duckduckgo.com/html/", params={"q": query}, timeout=10)
+            soup = BeautifulSoup(resp.text, "html.parser")
+            results = []
+            for r in soup.select(".result__body")[:count]:
+                title = r.select_one(".result__title")
+                snippet = r.select_one(".result__snippet")
+                if title:
+                    results.append(f"{title.get_text(strip=True)}: {snippet.get_text(strip=True) if snippet else ''}")
+            return "\n".join(results) if results else "No results found."
         except Exception as e:
-            return SearchResponse(error=str(e))
+            return f"Search error: {e}"
 
-    def _parse(self, html: str, limit: int) -> SearchResponse:
-        results = []
+class WebFetch(Tool):
+    name = "web_fetch"
+    description = "Fetch and extract text content from a URL"
+    parameters = {
+        "type": "object",
+        "properties": {
+            "url": {"type": "string", "description": "URL to fetch"},
+        },
+        "required": ["url"],
+    }
+    
+    def run(self, url: str) -> str:
         try:
-            soup = BeautifulSoup(html, "html.parser")
-            for a in soup.select("a.result__a, a.result-link, h2 a, .result__title a"):
-                if len(results) >= limit:
-                    break
-                t, u = _strip(a.get_text()), a.get("href", "")
-                if t and u:
-                    results.append(SearchResult(title=t, url=u))
-            snippet_selectors = [".result__snippet", ".result-snippet", ".snippet", ".result__snippet span"]
-            for sel in snippet_selectors:
-                snips = soup.select(sel)
-                if snips:
-                    for i, s in enumerate(snips):
-                        if i < len(results):
-                            results[i].snippet = _strip(s.get_text())
-                    break
+            resp = httpx.get(url, timeout=15, follow_redirects=True)
+            soup = BeautifulSoup(resp.text, "html.parser")
+            for tag in soup(["script", "style", "nav", "footer", "header"]):
+                tag.decompose()
+            text = soup.get_text(separator="\n", strip=True)
+            return text[:4000]
         except Exception as e:
-            logger.warning("Parse: %s", e)
-        return SearchResponse(results=results)
-
-    async def scrape(self, url: str, max_chars: int = 3000) -> str:
-        try:
-            r = await httpx.AsyncClient(timeout=10.0, follow_redirects=True).get(url, headers={"User-Agent": _USER})
-            r.raise_for_status()
-            return self._extract(r.text, max_chars)
-        except Exception as e:
-            return f"[error: {e}]"
-
-    def _extract(self, html: str, limit: int) -> str:
-        try:
-            soup = BeautifulSoup(html, "html.parser")
-            for t in soup(["script", "style", "nav", "footer", "header"]):
-                t.decompose()
-            lines = soup.get_text(separator="\n").splitlines()
-            cleaned_lines = [line.strip() for line in lines if line.strip()]
-            return "\n".join(cleaned_lines)[:limit]
-        except Exception as e:
-            logger.warning("Extract: %s", e)
-        return ""
+            return f"Fetch error: {e}"

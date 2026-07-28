@@ -1,0 +1,33 @@
+[general]
+name = "default"
+description = "Default FRIDAY configuration"
+
+[agent]
+default = "chat"
+name = "FRIDAY"
+voice = "jarvis"
+
+[providers.zen]
+type = "openai"
+api_base = "https://api.zenmarket.ai/v1"
+api_key = ""
+enabled = true
+
+[providers.ollama]
+type = "openai"
+api_base = "http://localhost:11434/v1"
+api_key = "ollama"
+enabled = true
+
+[tools]
+web_search = true
+shell_exec = false
+file_ops = true
+calculator = true
+code_interpreter = false
+git = false
+
+[voice]
+enabled = false
+stt_backend = "speechrecognition"
+tts_backend = "edge-tts"

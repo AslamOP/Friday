@@ -1,0 +1,24 @@
+[general]
+name = "code"
+description = "Software engineering configuration"
+
+[agent]
+default = "code"
+
+[providers.zen]
+type = "openai"
+api_base = "https://api.zenmarket.ai/v1"
+api_key = ""
+enabled = true
+
+[providers.ollama]
+type = "openai"
+api_base = "http://localhost:11434/v1"
+api_key = "ollama"
+enabled = true
+
+[tools]
+shell_exec = true
+file_ops = true
+git = true
+code_interpreter = true
