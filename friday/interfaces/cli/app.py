@@ -42,6 +42,7 @@ _HELP = f"""[bold]FRIDAY v{__version__}[/bold]
   /plugins      List plugins       /history   Session history
   /providers    Manage LLM providers  /voice   Toggle voice mode
   /speak        Read last response  /clear    Clear screen
+  /learn        Self-reflect & improve  /feedback Rate last response
   exit          Shutdown"""
 
 
@@ -276,6 +277,29 @@ class FridayREPL:
                         self.console.print(msg)
                     else:
                         self.console.print("[yellow]Usage: /provider key <name> <api_key>[/yellow]")
+                    continue
+
+                if raw.lower() == "/learn":
+                    lessons = await self.orchestrator.self_improve.reflect()
+                    if lessons:
+                        self.console.print("[green]Reflected and learned:[/green]")
+                        for l in lessons:
+                            self.console.print(f"  • {l}")
+                    else:
+                        self.console.print("[dim]No new lessons to learn yet. Keep using FRIDAY.[/dim]")
+                    continue
+
+                if raw.lower() == "/feedback":
+                    self.console.print("[dim]Rate your last interaction: 1(bad) to 5(great)[/dim]")
+                    try:
+                        rating = int(await asyncio.get_event_loop().run_in_executor(None, lambda: input("> ")))
+                        if 1 <= rating <= 5:
+                            self.orchestrator.self_improve.add_feedback(self.history[-1]["input"] if self.history else "", rating)
+                            self.console.print("[green]Feedback recorded. Thank you, sir.[/green]")
+                        else:
+                            self.console.print("[yellow]Enter 1-5[/yellow]")
+                    except (ValueError, IndexError):
+                        self.console.print("[yellow]Enter 1-5[/yellow]")
                     continue
 
                 if raw.lower().startswith("/provider refresh"):

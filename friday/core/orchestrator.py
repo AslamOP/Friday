@@ -7,6 +7,7 @@ from friday.core.agent_router import AgentRouter
 from friday.core.context_engine import ContextEngine
 from friday.core.event_bus import EventBus
 from friday.core.intent_parser import IntentParser
+from friday.core.self_improve import SelfImprovement
 from friday.core.task_delegator import TaskDelegator
 from friday.core.task_scheduler import TaskScheduler
 from friday.memory.entity_extractor import EntityExtractor
@@ -25,6 +26,7 @@ class Orchestrator:
         self.entity_extractor = EntityExtractor()
         self.persistence = PersistenceManager()
         self.plugin_manager = PluginManager()
+        self.self_improve = SelfImprovement()
         self._delegator: TaskDelegator | None = None
 
     async def initialize(self):
@@ -81,6 +83,12 @@ class Orchestrator:
         extracted = await self.entity_extractor.extract_and_store(f"{user_input} {result.output[:500]}")
         if extracted:
             logger.debug("Extracted %d entities", extracted)
+
+        # self-improvement: record interaction + detect correction feedback
+        self.self_improve.record(user_input, result.output, result.agent, result.success)
+        if self.self_improve.detect_correction(user_input):
+            self.self_improve.add_feedback(user_input, 1, "Detected correction: " + user_input[:100])
+
         await self.persistence.save_all()
         self.publish_event("agent:done", {"agent": result.agent, "success": result.success})
         return result
