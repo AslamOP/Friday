@@ -1,4 +1,4 @@
-"""``jarvis quickstart`` — guided 5-step setup for new users."""
+"""``friday quickstart`` — guided 5-step setup for new users."""
 
 from __future__ import annotations
 
@@ -67,12 +67,33 @@ def _check_model_available(engine_key: str) -> bool:
         return False
 
 
+_NON_CHAT_KEYWORDS = {"embed", "nomic-embed", "all-minilm", "llama-guard"}
+
+
 def _test_query(engine_key: str) -> str:
     """Run a quick test query and return the response text."""
     try:
         from friday import Jarvis
+        from friday.core.config import load_config
 
-        j = Jarvis(engine_key=engine_key)
+        config = load_config()
+
+        model = config.intelligence.default_model
+        if not model:
+            from friday.core.registry import EngineRegistry
+            from friday.engine import _discovery
+
+            engine = _discovery._make_engine(engine_key, config)
+            models = engine.list_models()
+            for m in models:
+                lower = m.split(":")[0].lower()
+                if not any(kw in lower for kw in _NON_CHAT_KEYWORDS):
+                    model = m
+                    break
+            if not model and models:
+                model = models[0]
+
+        j = Jarvis(engine_key=engine_key, model=model or None)
         response = j.ask("Say hello in one sentence.")
         j.close()
         return response
@@ -104,11 +125,19 @@ def quickstart(force: bool) -> None:
     # Step 2: Write config
     console.print()
     console.print("[bold cyan][2/5][/bold cyan] Writing config...")
+    needs_rewrite = force
     if DEFAULT_CONFIG_PATH.exists() and not force:
-        console.print(
-            f"  [dim]Config already exists at {DEFAULT_CONFIG_PATH} (skip)[/dim]"
-        )
-    else:
+        raw = DEFAULT_CONFIG_PATH.read_text()
+        if "[intelligence]" not in raw or "default_model" not in raw:
+            needs_rewrite = True
+            console.print(
+                f"  [yellow]Config exists but is an old format; regenerating...[/yellow]"
+            )
+        else:
+            console.print(
+                f"  [dim]Config already exists at {DEFAULT_CONFIG_PATH} (skip)[/dim]"
+            )
+    if needs_rewrite or not DEFAULT_CONFIG_PATH.exists():
         toml_content = generate_default_toml(hw)
         DEFAULT_CONFIG_DIR.mkdir(parents=True, exist_ok=True)
         DEFAULT_CONFIG_PATH.write_text(toml_content)
@@ -132,7 +161,7 @@ def quickstart(force: bool) -> None:
             )
             console.print()
             console.print(f"  Start the {engine_key} server and try again.")
-            console.print("  Run [bold]jarvis doctor[/bold] for detailed diagnostics.")
+            console.print("  Run [bold]friday doctor[/bold] for detailed diagnostics.")
             raise SystemExit(1)
     else:
         console.print(f"  [green]Engine '{engine_key}' is healthy.[/green]")
@@ -156,5 +185,5 @@ def quickstart(force: bool) -> None:
 
     console.print()
     console.print(
-        '[bold green]Setup complete![/bold green] Try: [bold]jarvis ask "Hello"[/bold]'
+        '[bold green]Setup complete![/bold green] Try: [bold]friday ask "Hello"[/bold]'
     )
