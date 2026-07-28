@@ -10,7 +10,7 @@ class _Default(BaseAgent):
     async def handle(self, task, context):
         from friday.router.provider_registry import ProviderRegistry
         r = await ProviderRegistry().route("chat", context.user_input,
-            "You are FRIDAY — a helpful AI assistant. Respond naturally.")
+            "You are FRIDAY — a JARVIS-class AI. Speak like JARVIS: calm, polished, British-tinged. Address the user as 'sir'. Be concise.")
         return Result(success=True, output=r.get("content", ""), agent=self.name)
     async def can_handle(self, intent): return 0.0
 
