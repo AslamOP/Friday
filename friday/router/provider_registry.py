@@ -59,6 +59,8 @@ _DEFAULTS: list[ProviderConfig] = [
 
 class ProviderRegistry:
     _instance = None
+    _last_check: float = 0
+    _CHECK_INTERVAL = 30  # seconds between full provider checks
 
     def __new__(cls, *args, **kwargs):
         if cls._instance is None:
@@ -191,14 +193,24 @@ class ProviderRegistry:
             p.enabled = enabled
             await self._save()
 
-    def get_online_providers(self) -> list[ProviderConfig]:
-        return [p for p in self.list_providers()
-                if p.enabled and p.status == "online"]
+
+    def _needs_key(self, name: str) -> bool:
+        return name in ("openai", "anthropic", "google", "github-copilot", "openrouter")
+
+    def _can_work(self, p: ProviderConfig) -> bool:
+        if p.type == "local":
+            return True
+        if not self._needs_key(p.name):
+            return True
+        return bool(p.api_key)
 
     async def check_status(self, name: str) -> str:
         p = self._providers.get(name)
         if not p:
             return "unknown"
+        if not self._can_work(p):
+            p.status = "offline"
+            return p.status
         try:
             import httpx
             headers = {}
@@ -214,15 +226,24 @@ class ProviderRegistry:
                 url = p.endpoint
             async with httpx.AsyncClient(timeout=3) as c:
                 r = await c.get(url, headers=headers)
-                p.status = "online" if r.status_code in (200, 201, 401, 403) else "offline"
+                p.status = "online" if r.status_code in (200, 201) else "offline"
         except Exception:
             p.status = "offline"
         await self._save()
         return p.status
 
     async def check_all(self):
+        import time
+        now = time.monotonic()
+        if now - self.__class__._last_check < self.__class__._CHECK_INTERVAL:
+            return
+        self.__class__._last_check = now
         for p in self.list_providers():
             await self.check_status(p.name)
+
+    def get_online_providers(self) -> list[ProviderConfig]:
+        return [p for p in self.list_providers()
+                if p.enabled and p.status == "online" and self._can_work(p)]
 
     async def route(self, task_type: str, prompt: str, system_prompt: str = "") -> dict[str, Any]:
         await self.check_all()
