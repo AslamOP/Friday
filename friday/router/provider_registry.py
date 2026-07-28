@@ -59,6 +59,7 @@ _DEFAULTS: list[ProviderConfig] = [
 
 class ProviderRegistry:
     _instance = None
+    _last_check: float = 0.0
 
     def __new__(cls, *args, **kwargs):
         if cls._instance is None:
@@ -230,7 +231,12 @@ class ProviderRegistry:
         await self._save()
         return p.status
 
-    async def check_all(self):
+    async def check_all(self, force=False):
+        import time
+        now = time.monotonic()
+        if not force and now - self.__class__._last_check < 10.0:
+            return
+        self.__class__._last_check = now
         for p in self.list_providers():
             await self.check_status(p.name)
 
@@ -240,21 +246,25 @@ class ProviderRegistry:
 
     async def route(self, task_type: str, prompt: str, system_prompt: str = "") -> dict[str, Any]:
         await self.check_all()
-        tried = False
         for p in self.get_online_providers():
             for model in p.models or ["gpt-3.5-turbo"]:
-                tried = True
                 logger.info("Trying %s with %s", p.name, model)
                 result = await self._call(p, task_type, prompt, system_prompt, model_override=model)
                 if result.get("model") != "none" and result.get("content"):
                     return result
                 if result.get("model") != "none":
                     logger.warning("%s returned empty content for model %s", p.name, model)
-        if not tried:
-            return {"model": "none",
-                    "content": "No provider available. Set an API key with: /provider key <name> <key>, or connect a local Ollama instance.",
-                    "role": "assistant"}
-        return {"model": "none", "content": "No provider available", "role": "assistant"}
+        if not self.get_online_providers():
+            await self.check_all(force=True)
+            for p in self.get_online_providers():
+                for model in p.models or ["gpt-3.5-turbo"]:
+                    logger.info("Trying %s with %s (retry)", p.name, model)
+                    result = await self._call(p, task_type, prompt, system_prompt, model_override=model)
+                    if result.get("model") != "none" and result.get("content"):
+                        return result
+        return {"model": "none",
+                "content": "No provider available. Set an API key with: /provider key <name> <key>, or connect a local Ollama instance.",
+                "role": "assistant"}
 
     async def route_stream(self, task_type: str, prompt: str, system_prompt: str = ""):
         await self.check_all()

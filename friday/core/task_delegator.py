@@ -20,6 +20,8 @@ class TaskDelegator:
         intent = pre_parsed or await self._intent.parse(user_input)
         if intent.type in ("chat",):
             return []
+        if intent.type in ("study", "knowledge"):
+            return []
         r = await self._llm.route("plan", _PROMPT.format(input=user_input))
         c = r.get("content", "[]").strip()
         if not c or c == "[]":
