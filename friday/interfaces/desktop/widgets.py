@@ -444,6 +444,9 @@ class CommandBar(QWidget):
         self.setFixedHeight(70)
         self.setStyleSheet("background: transparent;")
 
+        self._history: list[str] = []
+        self._history_index = -1
+
         layout = QHBoxLayout(self)
         layout.setContentsMargins(20, 10, 20, 10)
         layout.setSpacing(12)
@@ -484,6 +487,7 @@ class CommandBar(QWidget):
             }
         """)
         self._input.returnPressed.connect(self._submit)
+        self._input.installEventFilter(self)
         layout.addWidget(self._input, 1)
 
         self._send_btn = QPushButton("TRANSMIT")
@@ -507,9 +511,41 @@ class CommandBar(QWidget):
         self._send_btn.clicked.connect(self._submit)
         layout.addWidget(self._send_btn)
 
+    def eventFilter(self, obj, event):
+        if obj is self._input and event.type() == event.Type.KeyPress:
+            key = event.key()
+            if key == Qt.Key.Key_Up:
+                self._history_up()
+                return True
+            elif key == Qt.Key.Key_Down:
+                self._history_down()
+                return True
+        return super().eventFilter(obj, event)
+
+    def _history_up(self):
+        if not self._history:
+            return
+        if self._history_index == -1:
+            self._saved = self._input.text()
+        if self._history_index < len(self._history) - 1:
+            self._history_index += 1
+            self._input.setText(self._history[-(self._history_index + 1)])
+
+    def _history_down(self):
+        if self._history_index == -1:
+            return
+        self._history_index -= 1
+        if self._history_index == -1:
+            self._input.setText(self._saved if hasattr(self, '_saved') else "")
+        else:
+            self._input.setText(self._history[-(self._history_index + 1)])
+
     def _submit(self):
         text = self._input.text().strip()
         if text:
+            if not self._history or self._history[-1] != text:
+                self._history.append(text)
+            self._history_index = -1
             self.submitted.emit(text)
             self._input.clear()
 
@@ -626,7 +662,7 @@ class Panel(QFrame):
 class HelpDialog(QFrame):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setFixedSize(520, 500)
+        self.setFixedSize(540, 520)
         self.setStyleSheet("""
             HelpDialog {
                 background: rgba(8, 8, 30, 0.97);
@@ -636,65 +672,87 @@ class HelpDialog(QFrame):
         """)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(20, 16, 20, 16)
-        layout.setSpacing(10)
+        layout.setSpacing(8)
 
-        header = QLabel("⌨  FRIDAY COMMANDS")
+        header = QLabel("FRIDAY COMMANDS")
         header.setStyleSheet("color: #00e5ff; font-family: Rajdhani; font-size: 16px; font-weight: 700; letter-spacing: 2px; background: transparent;")
         layout.addWidget(header)
 
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setStyleSheet("QScrollArea { background: transparent; border: none; }"
+                             "QScrollBar:vertical { background: rgba(0,229,255,0.05); width: 4px; }"
+                             "QScrollBar::handle:vertical { background: #00e5ff; border-radius: 2px; }")
+        inner = QWidget()
+        inner.setStyleSheet("background: transparent;")
+        inner_layout = QVBoxLayout(inner)
+        inner_layout.setContentsMargins(0, 0, 0, 0)
+        inner_layout.setSpacing(6)
+
+        _CMD_FMT = "color: #00e5ff; font-family: 'Courier New', monospace; font-size: 11px; background: transparent;"
+        _DESC_FMT = "color: #8aaac0; font-family: 'Courier New', monospace; font-size: 11px; background: transparent;"
+        _SECT_FMT = "color: #00b8cc; font-family: Rajdhani; font-size: 12px; font-weight: 700; background: transparent; margin-top: 6px; letter-spacing: 1px;"
+
         sections = [
-            ("💬 CHAT", [
-                ("<ask anything>", "Natural conversation with FRIDAY"),
+            ("# CHAT", [
+                ("<ask anything>", "Natural conversation"),
                 ("exit", "Shutdown"),
             ]),
-            ("🔍 AGENTS", [
-                ("/agents", "List all agents and status"),
-                ("/research <q>", "Deep research with web search"),
-                ("/study <q>", "Study mentor from your notes"),
+            ("# AGENTS", [
+                ("/agents", "List all agents"),
+                ("/research <q>", "Deep research + web"),
+                ("/study <q>", "Study mentor"),
                 ("/code <q>", "Software engineering"),
                 ("/plan <q>", "Project planning"),
             ]),
-            ("⚙ SYSTEM", [
-                ("/status", "System state overview"),
+            ("# SYSTEM", [
+                ("/status", "System state"),
                 ("/save", "Force save memory"),
-                ("/history", "Recent conversation history"),
+                ("/history", "Conversation history"),
                 ("/clear", "Clear screen"),
-                ("/plugins", "List loaded plugins"),
+                ("/plugins", "Listed plugins"),
             ]),
-            ("🧠 MEMORY", [
-                ("/learn", "Self-reflect & extract lessons"),
-                ("/feedback", "Rate last response (1-5)"),
+            ("# MEMORY", [
+                ("/learn", "Self-reflect & learn"),
+                ("/feedback <1-5>", "Rate last response"),
+                ("/show memory", "Knowledge graph status"),
             ]),
-            ("🔌 PROVIDERS", [
-                ("/providers", "List providers & status"),
+            ("# PROVIDERS", [
+                ("/providers", "List providers"),
                 ("/provider key <n> <k>", "Set API key"),
-                ("/provider add <n> <t>", "Add custom provider"),
+                ("/provider add <n> <t>", "Add provider"),
             ]),
-            ("⌨ SHORTCUTS", [
+            ("# VOICE", [
+                ("/voice", "Toggle voice input"),
+                ("/speak", "TTS last response"),
+            ]),
+            ("# SHORTCUTS", [
                 ("Ctrl+H", "Toggle this help"),
                 ("Ctrl+D", "Toggle dashboard"),
-                ("Escape", "Minimize to tray"),
+                ("Escape", "Close overlay / minimize"),
             ]),
         ]
 
         for title, items in sections:
             lbl = QLabel(title)
-            lbl.setStyleSheet("color: #00b8cc; font-family: Rajdhani; font-size: 11px; font-weight: 700; background: transparent; margin-top: 4px;")
-            layout.addWidget(lbl)
+            lbl.setStyleSheet(_SECT_FMT)
+            inner_layout.addWidget(lbl)
 
             for cmd, desc in items:
                 row = QHBoxLayout()
-                row.setSpacing(8)
+                row.setSpacing(12)
                 c = QLabel(cmd)
-                c.setStyleSheet("color: #00e5ff; font-family: monospace; font-size: 10px; background: transparent;")
-                c.setFixedWidth(160)
+                c.setStyleSheet(_CMD_FMT)
+                c.setFixedWidth(180)
                 row.addWidget(c)
                 d = QLabel(desc)
-                d.setStyleSheet("color: #8aaac0; font-family: monospace; font-size: 10px; background: transparent;")
+                d.setStyleSheet(_DESC_FMT)
                 row.addWidget(d, 1)
-                layout.addLayout(row)
+                inner_layout.addLayout(row)
 
-        layout.addStretch()
+        inner_layout.addStretch()
+        scroll.setWidget(inner)
+        layout.addWidget(scroll, 1)
 
         close_btn = QPushButton("CLOSE")
         close_btn.setStyleSheet("""
