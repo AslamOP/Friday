@@ -10,54 +10,65 @@
 
 ## Quick Install
 
-### 1. One-liner (easiest — all platforms)
+### 1. pipx (recommended — Arch Linux)
 ```bash
-curl -fsSL https://raw.githubusercontent.com/AslamOP/Friday/main/install/friday-installer.sh | bash
-```
-On next login, FRIDAY asks permission. Say yes and it starts automatically after every login.
-
-### 2. Direct install from GitHub (no clone needed)
-Requires Python ≥3.11 and pip.
-```bash
-pip install git+https://github.com/AslamOP/Friday.git
-friday                    # start REPL
-friday --gui              # start desktop UI
-friday --daemon           # start background daemon
+pipx install 'friday[gui] @ git+https://github.com/AslamOP/Friday.git'
+friday              # CLI REPL (works immediately — Zen free tier active)
+friday --gui        # Desktop GUI
 ```
 
-### 3. Clone + dev install (for hacking)
+To upgrade:
+```bash
+pipx upgrade --force friday 2>/dev/null || pipx install --force 'friday[gui] @ git+https://github.com/AslamOP/Friday.git'
+```
+
+Install extras:
+```bash
+pipx install 'friday[all] @ git+https://github.com/AslamOP/Friday.git'   # GUI + voice
+pipx install 'friday[voice] @ git+https://github.com/AslamOP/Friday.git' # voice only (no GUI)
+```
+
+### 2. Clone + dev install
 ```bash
 git clone https://github.com/AslamOP/Friday.git
 cd Friday
 python -m venv .venv
 source .venv/bin/activate
 pip install -e .[dev]
-friday --cli
+friday
 ```
 
 ---
 
 ### Platform-specific notes
 
-**Arch Linux**
+**Arch Linux** — (pipx is already the default package manager for Python apps)
 ```bash
-sudo pacman -S python python-pip
-pip install git+https://github.com/AslamOP/Friday.git
-friday
+# Core (CLI only):
+pipx install git+https://github.com/AslamOP/Friday.git
+
+# With GUI:
+pipx install 'friday[gui] @ git+https://github.com/AslamOP/Friday.git'
+
+# With voice (needs system PyAudio):
+sudo pacman -S python-pyaudio
+pipx install 'friday[voice] @ git+https://github.com/AslamOP/Friday.git'
+
+# Everything:
+sudo pacman -S python-pyaudio
+pipx install 'friday[all] @ git+https://github.com/AslamOP/Friday.git'
 ```
 
 **Debian / Ubuntu**
 ```bash
-sudo apt update && sudo apt install -y python3 python3-pip python3-venv
-pip install git+https://github.com/AslamOP/Friday.git
-friday
+sudo apt update && sudo apt install -y python3 python3-pip python3-venv python3-pyaudio
+pip install 'friday[all] @ git+https://github.com/AslamOP/Friday.git'
 ```
 
 **macOS**
 ```bash
-brew install python@3.11
-pip install git+https://github.com/AslamOP/Friday.git
-friday
+brew install python@3.11 portaudio
+pip install 'friday[all] @ git+https://github.com/AslamOP/Friday.git'
 ```
 
 **Windows (WSL2)**
@@ -65,16 +76,14 @@ friday
 wsl --install -d Ubuntu
 # In WSL:
 sudo apt update && sudo apt install -y python3 python3-pip python3-venv
-pip install git+https://github.com/AslamOP/Friday.git
-friday
+pip install 'friday[all] @ git+https://github.com/AslamOP/Friday.git'
 ```
 
 ### After install
 ```bash
-friday                    # CLI REPL (works immediately — Zen free tier active)
-friday --gui              # Desktop GUI (PyQt6, requires display server)
+friday                    # CLI REPL
+friday --gui              # Desktop GUI (needs PyQt6: pipx install 'friday[gui]@...')
 friday --daemon           # Background daemon with IPC
-friday --help             # All options
 ```
 
 ---

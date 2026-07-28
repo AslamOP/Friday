@@ -14,10 +14,6 @@ dependencies = [
     "aiosqlite>=0.19",
     "rich>=13.0",
     "beautifulsoup4>=4.12",
-    "edge-tts>=6.0",
-    "SpeechRecognition>=3.10",
-    "pocketsphinx>=5.0",
-    "pyttsx3>=2.90",
     "psutil>=6.0",
     "playwright>=1.40",
     "qasync>=0.27",
@@ -28,6 +24,15 @@ dependencies = [
 [project.optional-dependencies]
 gui = [
     "PyQt6>=6.5",
+]
+voice = [
+    "SpeechRecognition>=3.10",
+    "pocketsphinx>=5.0",
+    "pyttsx3>=2.90",
+    "edge-tts>=6.0",
+]
+all = [
+    "friday[gui,voice]",
 ]
 dev = [
     "pytest>=8.0",
