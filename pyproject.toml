@@ -16,7 +16,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-gui = ["PyQt6>=6.5"]
+gui = ["PyQt6>=6.5", "qasync>=0.27"]
 voice = [
     "SpeechRecognition>=3.10",
     "pyaudio",

@@ -3,9 +3,10 @@ import asyncio
 import logging
 import sys
 
-from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtGui import QAction, QFont, QKeySequence, QShortcut
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QFont, QKeySequence, QShortcut
 from PyQt6.QtWidgets import QApplication, QLabel, QMainWindow, QVBoxLayout, QWidget
+import qasync
 
 from friday import __version__
 from friday.core.orchestrator import Orchestrator
@@ -114,9 +115,10 @@ class FridayWindow(QMainWindow):
     def _log_message(self, msg: str):
         self._log.add_message(msg)
 
-    def _on_submit(self, text: str):
-        self._response.set_text(f"[dim]Processing...[/dim]")
-        QTimer.singleShot(50, lambda: asyncio.create_task(self._process(text)))
+    @qasync.asyncSlot()
+    async def _on_submit(self, text: str):
+        self._response.set_text("Processing...")
+        await self._process(text)
 
     async def _process(self, text: str):
         try:
@@ -137,6 +139,9 @@ def run_gui(orchestrator: Orchestrator):
     app = QApplication(sys.argv)
     font = QFont("Rajdhani", 10)
     app.setFont(font)
+    loop = qasync.QEventLoop(app)
+    asyncio.set_event_loop(loop)
     win = FridayWindow(orchestrator)
     win.show()
-    sys.exit(app.exec())
+    with loop:
+        loop.run_forever()
