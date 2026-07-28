@@ -10,64 +10,71 @@
 
 ## Quick Install
 
-### Linux (Arch / EndeavourOS)
+### 1. One-liner (easiest — all platforms)
 ```bash
-sudo bash <(curl -fsSL https://raw.githubusercontent.com/anomalyco/friday/main/install/friday-installer.sh)
+curl -fsSL https://raw.githubusercontent.com/AslamOP/Friday/main/install/friday-installer.sh | bash
 ```
 On next login, FRIDAY asks permission. Say yes and it starts automatically after every login.
 
-### Linux (Debian / Ubuntu)
+### 2. Direct install from GitHub (no clone needed)
+Requires Python ≥3.11 and pip.
 ```bash
-# Install system dependencies
-sudo apt update && sudo apt install -y python3 python3-pip python3-venv nodejs npm xclip
-
-# Clone and install
-git clone https://github.com/anomalyco/friday.git
-cd friday
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e .
-
-# Boot + login integration
-sudo bash install/setup.sh
-
-# Start now
-./friday/main.py
+pip install git+https://github.com/AslamOP/Friday.git
+friday                    # start REPL
+friday --gui              # start desktop UI
+friday --daemon           # start background daemon
 ```
 
-### macOS
+### 3. Clone + dev install (for hacking)
 ```bash
-# Install Homebrew if not present: https://brew.sh
-brew install python@3.11 node
-
-git clone https://github.com/anomalyco/friday.git
-cd friday
-python3 -m venv .venv
+git clone https://github.com/AslamOP/Friday.git
+cd Friday
+python -m venv .venv
 source .venv/bin/activate
-pip install -e .
-
-# Start FRIDAY
-python friday/main.py
+pip install -e .[dev]
+friday --cli
 ```
 
-### Windows (WSL2)
+---
+
+### Platform-specific notes
+
+**Arch Linux**
+```bash
+sudo pacman -S python python-pip
+pip install git+https://github.com/AslamOP/Friday.git
+friday
+```
+
+**Debian / Ubuntu**
+```bash
+sudo apt update && sudo apt install -y python3 python3-pip python3-venv
+pip install git+https://github.com/AslamOP/Friday.git
+friday
+```
+
+**macOS**
+```bash
+brew install python@3.11
+pip install git+https://github.com/AslamOP/Friday.git
+friday
+```
+
+**Windows (WSL2)**
 ```powershell
-# In PowerShell (Admin):
 wsl --install -d Ubuntu
-
-# Then in WSL terminal:
-sudo apt update && sudo apt install -y python3 python3-pip python3-venv git
-git clone https://github.com/anomalyco/friday.git
-cd friday
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e .
-python friday/main.py
+# In WSL:
+sudo apt update && sudo apt install -y python3 python3-pip python3-venv
+pip install git+https://github.com/AslamOP/Friday.git
+friday
 ```
 
-### One-liner (cross-platform)
+### After install
 ```bash
-curl -fsSL https://raw.githubusercontent.com/anomalyco/friday/main/install/friday-installer.sh | bash
+friday                    # CLI REPL (works immediately — Zen free tier active)
+friday --gui              # Desktop GUI (PyQt6, requires display server)
+friday --daemon           # Background daemon with IPC
+friday --help             # All options
 ```
 
 ---
@@ -230,28 +237,7 @@ The interface is the window into FRIDAY. It is not the product itself.
 
 ---
 
-## Quick Start
-
-### Prerequisites (Arch Linux)
-```bash
-sudo pacman -S python nodejs npm tesseract-data-eng xclip maim scrot
-# Ollama for local models
-curl -fsSL https://ollama.com/install.sh | sh
-```
-
-### Setup
-```bash
-cd friday
-./setup.sh        # Installs deps, sets up .env
-nano .env         # Add your OpenRouter API key
-```
-
-### Run
-```bash
-./start.sh        # Starts FRIDAY core + optional UI
-```
-
-Or as a systemd user service:
+Or as a systemd user service (after clone + setup):
 ```bash
 systemctl --user enable friday
 systemctl --user start friday
