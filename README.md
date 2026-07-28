@@ -1,6 +1,6 @@
 # FRIDAY AI OS v3
 
-A JARVIS-class personal AI assistant, rebuilt from the ground up inspired by [OpenJarvis](https://github.com/open-jarvis/OpenJarvis).
+A JARVIS-class personal AI assistant with composable intelligence primitives — agents, tools, memory, MCP, multi-channel gateway, and local-first engine.
 
 ## Install
 
@@ -46,13 +46,37 @@ friday --gui        Desktop GUI mode
 
 ```
 friday/
-├── core/          # Agent base, Tool base, Router, Orchestrator, Memory, MCP, Learning, Config
-├── agents/        # Chat, Research, Code, Study, Planner, Gaming
-├── tools/         # Web search, Shell, File ops, Calculator, Code interpreter, Git, Think
-├── interfaces/    # CLI, Desktop (PyQt6), Voice (STT/TTS)
-├── presets/       # TOML config presets
-├── personas/      # Personality definitions
-└── router/        # Provider registry (Zen, Ollama)
+├── agents/        # Agent implementations (chat, react, hybrid, native, claude-code)
+├── analytics/     # Usage & telemetry analytics
+├── bench/         # Inference benchmarks
+├── channels/      # Multi-channel gateway (Telegram, iMessage, SMS)
+├── cli/           # Click-based CLI entry point & commands
+├── connectors/    # Data source connectors (Gmail, Obsidian, Notion, etc.)
+├── core/          # Base classes, config, paths, MCP, security, patterns
+├── daemon/        # Background server daemon
+├── engine/        # Inference engine (local, openai-compatible, hybrid)
+├── evals/         # Evaluation framework with dataset harnesses
+├── intelligence/  # Reasoning & augmentation primitives
+├── learning/      # Trace-based self-improvement, spec search
+├── mcp/           # Model Context Protocol tool server
+├── memory/        # Persistent memory store
+├── mining/        # Pearl mining node
+├── operators/     # Scheduled persistent operators
+├── prompt/        # Prompt library
+├── recipes/       # Composable orchestration recipes
+├── sandbox/       # Secure code execution sandbox
+├── scheduler/     # Cron-like task scheduler
+├── security/      # Audit, scanning, vault
+├── server/        # OpenAI-compatible API server
+├── sessions/      # Session management
+├── skills/        # Reusable skill definitions
+├── speech/        # STT/TTS
+├── system/        # System-level utilities
+├── telemetry/     # Inference telemetry store
+├── templates/     # File/recipe templates
+├── tools/         # Extensible tool implementations
+├── traces/        # Trace capture & replay
+└── workflow/      # Workflow orchestration
 ```
 
 ### Key features
