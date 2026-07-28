@@ -36,14 +36,50 @@ _BANNER = """
  |____/|_|        |_| \\_|_____/
 """
 
-_HELP = f"""[bold]FRIDAY v{__version__}[/bold]
-  /help         This help          /agents    List agents
-  /status       System state       /save      Force save
-  /plugins      List plugins       /history   Session history
-  /providers    Manage LLM providers  /voice   Toggle voice mode
-  /speak        Read last response  /clear    Clear screen
-  /learn        Self-reflect & improve  /feedback Rate last response
-  exit          Shutdown"""
+_HELP = f"""[bold]FRIDAY v{__version__}[/bold] — [/bold]JARVIS-class AI Operating System[/bold]
+
+[bold cyan]💬 Chat[/bold cyan]
+  <ask anything>     Natural conversation with FRIDAY
+  exit / quit / :q   Shutdown
+
+[bold cyan]🔍 Agents[/bold cyan]
+  /agents            List all agents and their status
+  /research <q>      Deep research with web search + LLM
+  /study <q>         Study mentor from your notes
+  /code <q>          Software engineering assistance
+  /plan <q>          Project planning & timelines
+
+[bold cyan]⚙️ System[/bold cyan]
+  /status            System state — agents, memory, providers
+  /save              Force save memory to disk
+  /history           Show recent conversation history
+  /clear             Clear screen
+  /plugins           List loaded plugins
+
+[bold cyan]🧠 Memory[/bold cyan]
+  /learn             Self-reflect on past interactions & extract lessons
+  /feedback          Rate last response (1-5) for FRIDAY to learn from
+  /show profile      View your user profile
+  /show projects     View your projects
+  /show memory       View knowledge graph & vector store status
+
+[bold cyan]🔌 Providers[/bold cyan]
+  /providers         List all LLM providers and status
+  /provider key <name> <key>   Set API key for a provider
+  /provider add <name> <type> [endpoint]  Add custom provider
+  /provider refresh <name>     Re-check status + fetch models
+  /provider remove <name>      Remove user-added provider
+
+[bold cyan]🎤 Voice[/bold cyan]
+  /voice             Toggle voice input mode
+  /speak             Read last response aloud (TTS)
+
+[bold cyan]⌨️ Shortcuts[/bold cyan]
+  Ctrl+D         Toggle dashboard
+  Ctrl+K         Clear screen
+  Ctrl+P         Toggle profile panel  (GUI)
+  Ctrl+,         Settings dialog       (GUI)
+  Escape         Minimize to tray      (GUI)"""
 
 
 class FridayREPL:

@@ -617,3 +617,97 @@ class Panel(QFrame):
 
     def add_layout(self, l):
         self._content.addLayout(l)
+
+
+# ---------------------------------------------------------------------------
+# Help dialog
+# ---------------------------------------------------------------------------
+
+class HelpDialog(QFrame):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setFixedSize(520, 500)
+        self.setStyleSheet("""
+            HelpDialog {
+                background: rgba(8, 8, 30, 0.97);
+                border: 1px solid rgba(0, 229, 255, 0.3);
+                border-radius: 8px;
+            }
+        """)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(20, 16, 20, 16)
+        layout.setSpacing(10)
+
+        header = QLabel("⌨  FRIDAY COMMANDS")
+        header.setStyleSheet("color: #00e5ff; font-family: Rajdhani; font-size: 16px; font-weight: 700; letter-spacing: 2px; background: transparent;")
+        layout.addWidget(header)
+
+        sections = [
+            ("💬 CHAT", [
+                ("<ask anything>", "Natural conversation with FRIDAY"),
+                ("exit", "Shutdown"),
+            ]),
+            ("🔍 AGENTS", [
+                ("/agents", "List all agents and status"),
+                ("/research <q>", "Deep research with web search"),
+                ("/study <q>", "Study mentor from your notes"),
+                ("/code <q>", "Software engineering"),
+                ("/plan <q>", "Project planning"),
+            ]),
+            ("⚙ SYSTEM", [
+                ("/status", "System state overview"),
+                ("/save", "Force save memory"),
+                ("/history", "Recent conversation history"),
+                ("/clear", "Clear screen"),
+                ("/plugins", "List loaded plugins"),
+            ]),
+            ("🧠 MEMORY", [
+                ("/learn", "Self-reflect & extract lessons"),
+                ("/feedback", "Rate last response (1-5)"),
+            ]),
+            ("🔌 PROVIDERS", [
+                ("/providers", "List providers & status"),
+                ("/provider key <n> <k>", "Set API key"),
+                ("/provider add <n> <t>", "Add custom provider"),
+            ]),
+            ("⌨ SHORTCUTS", [
+                ("Ctrl+H", "Toggle this help"),
+                ("Ctrl+D", "Toggle dashboard"),
+                ("Escape", "Minimize to tray"),
+            ]),
+        ]
+
+        for title, items in sections:
+            lbl = QLabel(title)
+            lbl.setStyleSheet("color: #00b8cc; font-family: Rajdhani; font-size: 11px; font-weight: 700; background: transparent; margin-top: 4px;")
+            layout.addWidget(lbl)
+
+            for cmd, desc in items:
+                row = QHBoxLayout()
+                row.setSpacing(8)
+                c = QLabel(cmd)
+                c.setStyleSheet("color: #00e5ff; font-family: monospace; font-size: 10px; background: transparent;")
+                c.setFixedWidth(160)
+                row.addWidget(c)
+                d = QLabel(desc)
+                d.setStyleSheet("color: #8aaac0; font-family: monospace; font-size: 10px; background: transparent;")
+                row.addWidget(d, 1)
+                layout.addLayout(row)
+
+        layout.addStretch()
+
+        close_btn = QPushButton("CLOSE")
+        close_btn.setStyleSheet("""
+            QPushButton {
+                font-family: Rajdhani; font-weight: 700;
+                background: rgba(0,229,255,0.1);
+                border: 1px solid #00e5ff;
+                color: #00e5ff;
+                padding: 6px 20px;
+                letter-spacing: 2px;
+                border-radius: 4px;
+            }
+            QPushButton:hover { background: #00e5ff; color: #000; }
+        """)
+        close_btn.clicked.connect(self.hide)
+        layout.addWidget(close_btn, 0, Qt.AlignmentFlag.AlignCenter)

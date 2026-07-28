@@ -27,8 +27,8 @@ from friday.interfaces.audio import SpeechToText
 
 from .widgets import (
     AgentPanel, AnimatedBackground, CommandBar, CoreRings,
-    Gauge, LogPanel, MetricBar, Panel, ProviderPanel, ResponseBox,
-    StatusPill,
+    Gauge, HelpDialog, LogPanel, MetricBar, Panel, ProviderPanel,
+    ResponseBox, StatusPill,
 )
 
 logger = logging.getLogger("friday.desktop")
@@ -365,8 +365,24 @@ class FridayWindow(QMainWindow):
     # -------------------------------------------------------------------
 
     def _setup_shortcuts(self):
+        QShortcut(QKeySequence("Ctrl+H"), self).activated.connect(self._toggle_help)
         QShortcut(QKeySequence("Ctrl+D"), self).activated.connect(self._toggle_dashboard)
-        QShortcut(QKeySequence("Escape"), self).activated.connect(self.showMinimized)
+        QShortcut(QKeySequence("Escape"), self).activated.connect(self._close_overlay)
+
+    def _toggle_help(self):
+        if not hasattr(self, '_help_dialog') or self._help_dialog is None:
+            self._help_dialog = HelpDialog(self)
+        d = self._help_dialog
+        d.move(self.x() + (self.width() - d.width()) // 2,
+               self.y() + (self.height() - d.height()) // 2)
+        d.show()
+        d.raise_()
+
+    def _close_overlay(self):
+        if hasattr(self, '_help_dialog') and self._help_dialog and self._help_dialog.isVisible():
+            self._help_dialog.hide()
+        else:
+            self.showMinimized()
 
     def _toggle_dashboard(self):
         pass
